@@ -279,7 +279,7 @@ nav.tabs button[aria-selected="true"] .cnt{background:var(--gold-soft);border-co
     <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent,#0d6b73);font-weight:600">Brasileiros em Ushuaia</div>
     <h1 id="agT">Sistema de propostas</h1>
     <p class="sub" id="agS">Entre com seu e-mail e senha.</p>
-    <form id="agForm" autocomplete="on">
+    <form id="gtForm" autocomplete="on">
       <div id="agNameRow" hidden><label for="agName">Seu nome</label><input id="agName" autocomplete="name">
         <label for="agWhats">WhatsApp (vai nas propostas de venda direta)</label><input id="agWhats" type="tel" autocomplete="tel" placeholder="Ex.: +55 11 91234-5678"></div>
       <label for="agEmail">E-mail</label><input id="agEmail" type="email" autocomplete="email" required>
@@ -333,7 +333,7 @@ function setMode(m){mode=m;q$("#agNameRow").hidden=m!=="signup";q$("#agTipoRow")
 q$("#agToggle").onclick=()=>setMode(mode==="login"?"signup":"login");
 q$("#agForgot").onclick=()=>setMode("reset");
 const errTxt=e=>({"auth/invalid-credential":"E-mail ou senha incorretos.","auth/wrong-password":"E-mail ou senha incorretos.","auth/user-not-found":"E-mail ou senha incorretos.","auth/email-already-in-use":"Este e-mail já tem cadastro. Use Entrar ou Esqueci a senha.","auth/weak-password":"A senha precisa ter pelo menos 6 caracteres.","auth/invalid-email":"E-mail inválido.","auth/too-many-requests":"Muitas tentativas. Espere um pouco e tente de novo.","auth/network-request-failed":"Sem conexão com a internet."}[e&&e.code]||("Não foi possível concluir ("+(e&&e.code||e)+")."));
-q$("#agForm").onsubmit=async ev=>{ev.preventDefault();const email=q$("#agEmail").value.trim(),pass=q$("#agPass").value;
+q$("#gtForm").onsubmit=async ev=>{ev.preventDefault();const email=q$("#agEmail").value.trim(),pass=q$("#agPass").value;
   try{if(mode==="reset"){await auth.sendPasswordResetEmail(email);msg("Pronto! Confira seu e-mail (e a caixa de spam).","ok");return}
     if(mode==="signup"){const nome=q$("#agName").value.trim();if(!nome)return msg("Preencha seu nome.","err");
       const whats=q$("#agWhats").value.trim();if(whats.replace(/\D/g,"").length<8)return msg("Preencha seu WhatsApp com DDD.","err");
