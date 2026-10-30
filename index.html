@@ -228,7 +228,8 @@ table.t select{padding:4px 6px;border:1px solid var(--rule);border-radius:6px;ba
     <h1 id="agT">Sistema de propostas</h1>
     <p class="sub" id="agS">Entre com seu e-mail e senha.</p>
     <form id="agForm" autocomplete="on">
-      <div id="agNameRow" hidden><label for="agName">Seu nome</label><input id="agName" autocomplete="name"></div>
+      <div id="agNameRow" hidden><label for="agName">Seu nome</label><input id="agName" autocomplete="name">
+        <label for="agWhats">WhatsApp (vai nas propostas de venda direta)</label><input id="agWhats" type="tel" autocomplete="tel" placeholder="Ex.: +55 11 91234-5678"></div>
       <label for="agEmail">E-mail</label><input id="agEmail" type="email" autocomplete="email" required>
       <div id="agPassRow"><label for="agPass">Senha</label><input id="agPass" type="password" autocomplete="current-password" minlength="6"></div>
       <div id="agTipoRow" hidden><label>Você trabalha com</label>
@@ -282,9 +283,10 @@ const errTxt=e=>({"auth/invalid-credential":"E-mail ou senha incorretos.","auth/
 q$("#agForm").onsubmit=async ev=>{ev.preventDefault();const email=q$("#agEmail").value.trim(),pass=q$("#agPass").value;
   try{if(mode==="reset"){await auth.sendPasswordResetEmail(email);msg("Pronto! Confira seu e-mail (e a caixa de spam).","ok");return}
     if(mode==="signup"){const nome=q$("#agName").value.trim();if(!nome)return msg("Preencha seu nome.","err");
+      const whats=q$("#agWhats").value.trim();if(whats.replace(/\D/g,"").length<8)return msg("Preencha seu WhatsApp com DDD.","err");
       const tipo=(document.querySelector('input[name="agTipo"]:checked')||{}).value||"agencias";
       signingUp=true;const c=await auth.createUserWithEmailAndPassword(email,pass);
-      try{await fs.doc("usuarios/"+c.user.uid).set({nome,email,tipo,ativo:false,admin:false,criadoEm:new Date().toISOString()})}finally{signingUp=false}
+      try{await fs.doc("usuarios/"+c.user.uid).set({nome,email,whats,tipo,ativo:false,admin:false,criadoEm:new Date().toISOString()})}finally{signingUp=false}
       return check(c.user)}
     await auth.signInWithEmailAndPassword(email,pass)}catch(e){msg(errTxt(e),"err")}};
 
@@ -301,28 +303,51 @@ async function check(u){
     q$("#agToggle").textContent="Sair";q$("#agToggle").onclick=()=>auth.signOut().then(()=>{q$("#agToggle").onclick=()=>setMode(mode==="login"?"signup":"login");setMode("login")});return}
   window.BRUSH.perfil=Object.assign({},p,{admin});
   q$("#authGate").hidden=true;
-  if(!q$("#userBar")){const b=document.createElement("div");b.id="userBar";b.innerHTML=`<span>${(p.nome||u.email).replace(/[<>&]/g,"")}</span><button type="button">Sair</button>`;b.querySelector("button").onclick=()=>auth.signOut().then(()=>location.reload());document.body.appendChild(b)}
+  if(!q$("#userBar")){const b=document.createElement("div");b.id="userBar";b.innerHTML=`<span id="ubName"></span><button type="button" id="ubPerfil">Meu perfil</button><button type="button" id="ubSair">Sair</button>`;document.body.appendChild(b);
+    q$("#ubSair").onclick=()=>auth.signOut().then(()=>location.reload());q$("#ubPerfil").onclick=()=>openPerfil(u)}
+  q$("#ubName").textContent=p.nome||u.email;
+  if(!p.whats)setTimeout(()=>openPerfil(u,true),600);
   if(!started){started=true;const go=()=>{if(window.__startLive){window.__startLive();if(admin)buildEquipe()}else setTimeout(go,50)};go()}
 }
+
+/* ---- meu perfil ---- */
+function openPerfil(u,primeira){let d=q$("#perfilDlg");if(!d){d=document.createElement("dialog");d.id="perfilDlg";d.className="confirm";
+  d.innerHTML=`<div class="dh"><div style="flex:1"><h3>Meu perfil</h3><p id="pfP">Seu nome e WhatsApp aparecem no PDF das propostas de venda direta (Brasileiros em Ushuaia).</p></div></div>
+  <div style="padding:0 20px"><label style="display:block;font-size:13px;font-weight:600;margin:8px 0 4px">Nome</label><input id="pfNome" style="width:100%;padding:9px 11px;border:1px solid var(--rule);border-radius:8px;font:inherit">
+  <label style="display:block;font-size:13px;font-weight:600;margin:12px 0 4px">WhatsApp</label><input id="pfWhats" type="tel" placeholder="Ex.: +55 11 91234-5678" style="width:100%;padding:9px 11px;border:1px solid var(--rule);border-radius:8px;font:inherit">
+  <div class="status" id="pfSt" style="margin-top:8px"></div></div>
+  <div class="da"><button class="btn" type="button" id="pfX">Fechar</button><button class="btn primary" type="button" id="pfOk">Salvar</button></div>`;document.body.appendChild(d);
+  q$("#pfX").onclick=()=>d.close();
+  q$("#pfOk").onclick=async()=>{const nome=q$("#pfNome").value.trim(),whats=q$("#pfWhats").value.trim();if(!nome){q$("#pfSt").textContent="Preencha o nome.";return}
+    try{await fs.doc("usuarios/"+auth.currentUser.uid).update({nome,whats});Object.assign(window.BRUSH.perfil,{nome,whats});q$("#ubName").textContent=nome;d.close();
+      if(window.__onPerfil)window.__onPerfil()}catch(e){q$("#pfSt").textContent="Não foi possível salvar ("+(e.code||e)+")."}}}
+  const pf=window.BRUSH.perfil||{};q$("#pfNome").value=pf.nome||"";q$("#pfWhats").value=pf.whats||"";q$("#pfSt").textContent="";
+  q$("#pfP").textContent=primeira?"Falta só o seu WhatsApp: ele aparece no PDF das propostas de venda direta (Brasileiros em Ushuaia).":"Seu nome e WhatsApp aparecem no PDF das propostas de venda direta (Brasileiros em Ushuaia).";
+  if(d.showModal&&!d.open)d.showModal()}
 
 /* ---- equipe (admin) ---- */
 function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||document.querySelector('[data-tab="equipe"]'))return;
   const b=document.createElement("button");b.type="button";b.setAttribute("role","tab");b.dataset.tab="equipe";b.setAttribute("aria-selected","false");b.innerHTML='Equipe<span class="cnt" id="cntEq">0</span>';nav.appendChild(b);
   const v=document.createElement("div");v.dataset.view="equipe";v.hidden=true;
   v.innerHTML=`<section class="pane"><div class="pane-h"><h2>Equipe</h2><span class="count" id="eqInfo"></span></div>
-    <div class="sec"><p class="hint">Quem se cadastra aparece aqui como <b>aguardando</b>. Libere o acesso e confira se a pessoa é de <b>Agências</b> ou do <b>Físico</b>.</p>
-    <div class="tbl-wrap"><table class="t eq-t"><thead><tr><th>Nome</th><th>E-mail</th><th>Setor</th><th>Acesso</th><th>Cadastro</th></tr></thead><tbody id="eqBody"></tbody></table></div></div>
+    <div class="sec"><p class="hint">Quem se cadastra aparece aqui como <b>aguardando</b>. Libere o acesso e confira se a pessoa é de <b>Agências</b> ou do <b>Físico</b>. <b>Inativo</b> tira o acesso mas guarda o cadastro; <b>Excluir</b> remove a pessoa da equipe (as propostas que ela fez continuam no histórico).</p>
+    <div class="tbl-wrap"><table class="t eq-t"><thead><tr><th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Setor</th><th>Acesso</th><th>Cadastro</th><th></th></tr></thead><tbody id="eqBody"></tbody></table></div></div>
     <div class="sec"><h3>Importar dados</h3><p class="hint">Use uma vez para trazer agências, histórico e configurações do sistema antigo (arquivo .json enviado pelo Claude).</p>
     <input type="file" id="eqFile" accept="application/json"> <span class="status" id="eqSt"></span></div></section>`;
   const last=[...document.querySelectorAll("[data-view]")].pop();last.parentNode.insertBefore(v,last.nextSibling);
   fs.collection("usuarios").onSnapshot(s=>{const rows=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(a.ativo-b.ativo)||(a.nome||"").localeCompare(b.nome||""));
     q$("#cntEq").textContent=rows.filter(r=>!r.ativo).length||rows.length;q$("#eqInfo").textContent=`${rows.length} pessoa(s) · ${rows.filter(r=>!r.ativo).length} aguardando`;
     const e=t=>String(t||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-    q$("#eqBody").innerHTML=rows.map(r=>`<tr data-u="${e(r.id)}"><td>${e(r.nome)}${r.admin?' <span class="meta">(admin)</span>':""}</td><td>${e(r.email)}</td>
+    q$("#eqBody").innerHTML=rows.map(r=>`<tr data-u="${e(r.id)}"><td>${e(r.nome)}${r.admin?' <span class="meta">(admin)</span>':""}</td><td>${e(r.email)}</td><td>${e(r.whats||"—")}</td>
       <td><select data-f="tipo"><option value="agencias"${r.tipo==="agencias"?" selected":""}>Agências</option><option value="fisico"${r.tipo==="fisico"?" selected":""}>Físico</option></select></td>
-      <td><select data-f="ativo"><option value="1"${r.ativo?" selected":""}>Liberado</option><option value="0"${!r.ativo?" selected":""}>${r.ativo?"Bloqueado":"Aguardando"}</option></select></td><td>${e((r.criadoEm||"").slice(0,10).split("-").reverse().join("/"))}</td></tr>`).join("")},()=>{});
+      <td><select data-f="ativo"><option value="1"${r.ativo?" selected":""}>Liberado</option><option value="0"${!r.ativo?" selected":""}>${!r.ativo&&!r.liberadoEm?"Aguardando":"Inativo"}</option></select></td><td>${e((r.criadoEm||"").slice(0,10).split("-").reverse().join("/"))}</td>
+      <td>${r.admin||r.id===auth.currentUser.uid?"":`<button class="btn sm ghost danger" type="button" data-del>Excluir</button>`}</td></tr>`).join("")},()=>{});
   q$("#eqBody").addEventListener("change",async ev=>{const sel=ev.target.closest("[data-f]");if(!sel)return;const id=sel.closest("tr").dataset.u;const f=sel.dataset.f;
-    try{await fs.doc("usuarios/"+id).update({[f]:f==="ativo"?sel.value==="1":sel.value})}catch(e){alertMsg("Não foi possível salvar.")}});
+    const up=f==="ativo"?(sel.value==="1"?{ativo:true,liberadoEm:new Date().toISOString()}:{ativo:false,inativadoEm:new Date().toISOString()}):{[f]:sel.value};
+    try{await fs.doc("usuarios/"+id).update(up)}catch(e){alertMsg("Não foi possível salvar.")}});
+  let pend=null;q$("#eqBody").addEventListener("click",async ev=>{const b=ev.target.closest("[data-del]");if(!b)return;const id=b.closest("tr").dataset.u;
+    if(pend!==id){pend=id;b.textContent="Confirmar exclusão";setTimeout(()=>{if(pend===id){pend=null;b.textContent="Excluir"}},5000);return}
+    pend=null;b.disabled=true;try{await fs.doc("usuarios/"+id).delete();alertMsg("Pessoa excluída da equipe.")}catch(e){b.disabled=false;alertMsg("Não foi possível excluir.")}});
   const alertMsg=t=>{q$("#eqSt").textContent=t};
   q$("#eqFile").addEventListener("change",async ev=>{const f=ev.target.files[0];if(!f)return;alertMsg("Lendo arquivo…");
     try{const data=JSON.parse(await f.text());let n=0,tot=0;for(const c in data)tot+=Object.keys(data[c]).length;
@@ -575,7 +600,10 @@ const BRUSH_LOGO="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAqIAAAEZCAMAAAB7
 const BRUSH_AG={id:"__brush",nome:"Brasileiros em Ushuaia",contato:"brasileirosemushuaia.com.br · @brasileirosemushuaia",logo:BRUSH_LOGO};
 const isDireta=()=>S.ag&&S.ag.id==="__brush";
 const isFisico=()=>!!(window.BRUSH&&window.BRUSH.perfil&&window.BRUSH.perfil.tipo==="fisico");
-function useBrush(st){st.ag=Object.assign({},BRUSH_AG);st.com={modo:"fixo",fixo:"0"};return st}
+function brushContato(){const pf=window.BRUSH&&window.BRUSH.perfil;if(!pf||!pf.nome)return BRUSH_AG.contato;
+  return [`Vendedor(a): ${pf.nome}`,pf.whats?`WhatsApp ${pf.whats}`:"","@brasileirosemushuaia"].filter(Boolean).join(" · ")}
+function useBrush(st){st.ag=Object.assign({},BRUSH_AG,{contato:brushContato()});st.com={modo:"fixo",fixo:"0"};return st}
+window.__onPerfil=()=>{if(isDireta()){S.ag.contato=brushContato();save();bindValues()}};
 /* ---------- state ---------- */
 const HB=Object.fromEntries(HOTELS.map(h=>[h.id,h]));
 const nightsOf=h=>h.ci&&h.co?Math.max(0,Math.round((Date.parse(h.co)-Date.parse(h.ci))/864e5)):0;
