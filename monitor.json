@@ -1,0 +1,51 @@
+{
+ "falhas": 0,
+ "mudancas": [
+  {
+   "de": 862,
+   "id": 716843,
+   "para": 825,
+   "pcDe": 549,
+   "pcPara": 495,
+   "t": "Dia de Campo Estancia Nibepo Aike (Meio dia)"
+  }
+ ],
+ "novos": [
+  "Aventura e Neve: Moto de Neve + Esquibunda + Caminhada com Raquetes + Almoço Buffet Livre com Cordeiro Patagônico – PM",
+  "Aventura e Neve Night: Moto de Neve + Esquibunda + Caminhada com Raquetes + Rodízio de Pizza",
+  "Premier Pass Adventure Plus – 2 Dias",
+  "Premier Pass Adventure – 2 Dias",
+  "Aventura e Neve: Moto de Neve + Esquibunda + Caminhada com Raquetes + Almoço Buffet Livre com Cordeiro Patagônico – AM"
+ ],
+ "revisar": [
+  {
+   "de": 295,
+   "id": 70764,
+   "motivo": "preço de criança sumiu do site (-100%)",
+   "para": 295,
+   "pcDe": 147.5,
+   "pcPara": 0,
+   "t": "City Tour Portenho em Buenos Aires"
+  },
+  {
+   "de": 2890,
+   "id": 32984,
+   "motivo": "preço de criança sumiu do site (-100%)",
+   "para": 2890,
+   "pcDe": 2890,
+   "pcPara": 0,
+   "t": "Sobrevoo turístico de avião com parada em Tolhuin – Ushuaia"
+  },
+  {
+   "de": 1485,
+   "id": 578169,
+   "motivo": "preço de criança sumiu do site (-100%)",
+   "para": 1485,
+   "pcDe": 742,
+   "pcPara": 0,
+   "t": "Show de Tango Los Angelitos – Executivo (Jantar +Show)"
+  }
+ ],
+ "ultima": "2026-10-30",
+ "verificados": 93
+}

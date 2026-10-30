@@ -307,8 +307,15 @@ async function check(u){
     q$("#ubSair").onclick=()=>auth.signOut().then(()=>location.reload());q$("#ubPerfil").onclick=()=>openPerfil(u)}
   q$("#ubName").textContent=p.nome||u.email;
   if(!p.whats)setTimeout(()=>openPerfil(u,true),600);
-  if(!started){started=true;const go=()=>{if(window.__startLive){window.__startLive();if(admin)buildEquipe()}else setTimeout(go,50)};go()}
+  if(started)applyTabs();
+  if(!started){started=true;const go=()=>{if(window.__startLive){applyTabs();window.__startLive();if(admin)buildEquipe()}else setTimeout(go,50)};go()}
 }
+/* abas por perfil: Tarifas só admin; Agências só setor agências (ou admin) */
+function applyTabs(){const pf=window.BRUSH.perfil||{};const ad=!!pf.admin;
+  const hide={tarifas:!ad,agencias:!ad&&pf.tipo!=="agencias"};
+  for(const k in hide){const b=document.querySelector('nav.tabs [data-tab="'+k+'"]');if(!b)continue;b.hidden=hide[k];
+    if(hide[k]&&b.getAttribute("aria-selected")==="true"){const p=document.querySelector('nav.tabs [data-tab="proposta"]');if(p)p.click()}}
+  document.body.classList.toggle("naoAdmin",!ad)}
 
 /* ---- meu perfil ---- */
 function openPerfil(u,primeira){let d=q$("#perfilDlg");if(!d){d=document.createElement("dialog");d.id="perfilDlg";d.className="confirm";
@@ -639,8 +646,9 @@ async function initLive(){
   LIVE.db.collection("agencias").onSnapshot(s=>{LIVE.agencias=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(a.nome||"").localeCompare(b.nome||""));
     {const a=S.ag.id&&LIVE.agencias.find(x=>x.id===S.ag.id);if(a&&a.logo&&a.logo!==S.ag.logo){S.ag.logo=a.logo;save();try{renderLogo()}catch(e){}}}renderAgSelect();renderAgList()},err);
   LIVE.db.collection("propostas").orderBy("num","desc").limit(1000).onSnapshot(s=>{LIVE.props=s.docs.map(d=>Object.assign({id:d.id},d.data()));renderHist();resolveNames()},err);
-  LIVE.db.collection("tarifas").onSnapshot(s=>{LIVE.tarifas=Object.fromEntries(s.docs.map(d=>[d.id,d.data()]));applyTarifas()},err);
-  LIVE.db.doc("config/monitor").onSnapshot(s=>{LIVE.monitor=s.exists?s.data():null;renderMonitor()},err);
+  LIVE.db.collection("tarifas").onSnapshot(s=>{LIVE.tarifas=Object.fromEntries(s.docs.map(d=>[d.id,d.data()]).filter(x=>x[1].fonte!=="monitor"));applyTarifas()},err);
+  fetch("monitor.json?v="+Date.now()).then(r=>r.ok?r.json():null).then(m=>{LIVE.monitor=m;renderMonitor()}).catch(()=>{});
+  fetch("precos.json?v="+Date.now()).then(r=>r.ok?r.json():null).then(p=>{if(!p)return;for(const t of CATALOG){const x=p[String(t.id)];if(x&&isFinite(x.pa)){t.pa0=x.pa;t.pc0=isFinite(x.pc)?x.pc:t.pc0}}applyTarifas()}).catch(()=>{});
 }
 function dbOff(){const msg='<div class="banner">Esta visualização não tem acesso aos dados compartilhados (entre com sua conta no claude.ai). O PDF continua funcionando, mas sem número, histórico e cadastros.</div>';
   ["#dbOffHist","#dbOffAg","#dbOffTar"].forEach(s=>{const el=$(s);if(el)el.innerHTML=msg})}
