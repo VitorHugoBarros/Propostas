@@ -252,6 +252,7 @@ const CFG={apiKey:"AIzaSyAySsYyskpCEHwVJdPeTs7B4ChibB3IhGI",authDomain:"proposta
 const ADMINS=["vitorhugoscb2018@gmail.com"];
 firebase.initializeApp(CFG);
 const fs=firebase.firestore(),auth=firebase.auth();
+try{auth.languageCode="pt-BR"}catch(e){}
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
 const q$=s=>document.querySelector(s);
 const wrapDoc=s=>({id:s.id,exists:s.exists,data:()=>s.data()});
@@ -392,7 +393,7 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
     // app secundário: criar o login não desconecta você
     const sec=(firebase.apps||[]).find(a=>a.name==="criar")||firebase.initializeApp(CFG,"criar");const sa=sec.auth();
     try{try{await sa.setPersistence(firebase.auth.Auth.Persistence.NONE)}catch(e){}
-      try{sa.languageCode="pt"}catch(e){}
+      try{sa.languageCode="pt-BR"}catch(e){}
       const tmp=Array.from(crypto.getRandomValues(new Uint8Array(18)),b=>("0"+b.toString(16)).slice(-2)).join("")+"Aa1!";
       const c=await sa.createUserWithEmailAndPassword(email,tmp);const uid=c.user.uid;
       await sec.firestore().doc("usuarios/"+uid).set({nome,email,whats,tipo,ativo:false,admin:false,criadoEm:new Date().toISOString()});
