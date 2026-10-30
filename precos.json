@@ -556,5 +556,75 @@
   "pa": 1495.0,
   "pc": 1120.0,
   "src": "https://www.brasileirosemushuaia.com.br/passeio/experiencia-vinhos-portenos-bodega-gamboa-degustacao-e-sabores/"
+ },
+ "combo:verao-ush-antartica": {
+  "t": "Pacote Verão Ushuaia – Experiência Antártica",
+  "pa": 3899,
+  "pc": 0,
+  "src": "https://www.brasileirosemushuaia.com.br/pacotes-promocionais/pacote-verao-2026-2027-01-10-a-31-03-ushuaia/",
+  "tipo": "combo"
+ },
+ "combo:verao-ush-husky": {
+  "t": "Pacote Verão Ushuaia – Huskies com almoço",
+  "pa": 3599,
+  "pc": 0,
+  "src": "https://www.brasileirosemushuaia.com.br/pacotes-promocionais/pacote-verao-2026-2027-01-10-a-31-03-ushuaia-2/",
+  "tipo": "combo"
+ },
+ "combo:aereo-ush-verao": {
+  "t": "Pacote com Aéreo Ushuaia Verão",
+  "pa": 6990,
+  "pc": 0,
+  "src": "https://www.brasileirosemushuaia.com.br/pacotes-promocionais/pacote-com-aereo-ushuaia-verao-dezembro-janeiro-e-fevereiro/",
+  "tipo": "combo"
+ },
+ "combo:rubi-ush-verao": {
+  "t": "Pacote Rubi – Ushuaia (verão)",
+  "pa": 3691,
+  "pc": 0,
+  "src": "https://www.brasileirosemushuaia.com.br/pacotes-promocionais/pacote-rubi-ushuaia-01-10-26-a-30-03-27/",
+  "tipo": "combo"
+ },
+ "combo:rubi-ush-cal-verao": {
+  "t": "Pacote Rubi – Ushuaia + El Calafate (verão)",
+  "pa": 5892,
+  "pc": 0,
+  "src": "https://www.brasileirosemushuaia.com.br/pacotes-promocionais/pacote-rubi-ushuaia-el-calafate-01-10-27-a-30-03-27/",
+  "tipo": "combo"
+ },
+ "combo:rubi-cal-verao": {
+  "t": "Pacote Rubi – El Calafate (verão)",
+  "pa": 5380,
+  "pc": 0,
+  "src": "https://www.brasileirosemushuaia.com.br/pacotes-promocionais/pacote-rubi-el-calafate-01-10-26-a-30-03-27/",
+  "tipo": "combo"
+ },
+ "combo:black-ush-inverno": {
+  "t": "Pacote Black November Ushuaia Inverno",
+  "pa": 2600,
+  "pc": 0,
+  "src": "https://www.brasileirosemushuaia.com.br/pacotes-promocionais/pacote-black-november-ushuaia-inverno/",
+  "tipo": "combo"
+ },
+ "combo:rubi-ush-inverno": {
+  "t": "Pacote Rubi – Ushuaia (inverno 2027)",
+  "pa": 4778,
+  "pc": 0,
+  "src": "https://www.brasileirosemushuaia.com.br/pacotes-promocionais/pacote-rubi-ushuaia-inverno-2027/",
+  "tipo": "combo"
+ },
+ "combo:rubi-ush-cal-inverno": {
+  "t": "Pacote Rubi – Ushuaia + El Calafate (inverno 2027)",
+  "pa": 7385,
+  "pc": 0,
+  "src": "https://www.brasileirosemushuaia.com.br/pacotes-promocionais/pacote-rubi-ushuaia-el-calafate-inverno-2027/",
+  "tipo": "combo"
+ },
+ "combo:rubi-cal-inverno": {
+  "t": "Pacote Rubi – El Calafate (inverno 2027)",
+  "pa": 5380,
+  "pc": 0,
+  "src": "https://www.brasileirosemushuaia.com.br/pacotes-promocionais/pacote-rubi-el-calafate-inverno-2027/",
+  "tipo": "combo"
  }
 }
