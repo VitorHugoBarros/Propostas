@@ -217,6 +217,12 @@ table.t select{padding:4px 6px;border:1px solid var(--rule);border-radius:6px;ba
 #authGate .msg.err{color:#b8322a}#authGate .msg.ok{color:#0d6b73}
 #authGate .seg2{display:flex;gap:8px}#authGate .seg2 label{flex:1;margin:0;border:1px solid var(--rule,#d6dedf);border-radius:8px;padding:9px 10px;font-weight:500;cursor:pointer;display:flex;gap:6px;align-items:center}
 #authGate .seg2 input{width:auto}
+.eqNovo{margin:0 0 14px}.eqNovo>summary{list-style:none;display:inline-flex;cursor:pointer}.eqNovo>summary::-webkit-details-marker{display:none}
+.eqForm{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px 12px;align-items:end;margin-top:12px;padding:14px;border:1px solid var(--line,#dfe5e7);border-radius:10px;background:var(--surface-2,#f6f8f8)}
+.eqForm label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted,#606d74)}
+.eqForm input,.eqForm select{font:inherit;font-size:14px;padding:7px 9px;border:1px solid var(--line,#cfd8db);border-radius:8px;background:var(--surface,#fff);color:var(--ink,#1d2a30)}
+.eqForm label[hidden]{display:none}
+.eqNovo .status{text-align:left;margin-top:4px}
 #userBar{position:fixed;top:10px;right:14px;z-index:50;font-size:12.5px;color:var(--muted,#606d74);display:flex;gap:10px;align-items:center;background:var(--surface,#fff);border:1px solid var(--rule,#d6dedf);border-radius:999px;padding:4px 6px 4px 12px}
 #userBar button{border:1px solid var(--rule,#d6dedf);background:transparent;border-radius:999px;padding:3px 10px;cursor:pointer;font:inherit;color:inherit}
 .eq-t td,.eq-t th{padding:8px 10px;border-bottom:1px solid var(--rule,#d6dedf);text-align:left;font-size:13.5px}
@@ -342,6 +348,18 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
   const v=document.createElement("div");v.dataset.view="equipe";v.hidden=true;
   v.innerHTML=`<section class="pane"><div class="pane-h"><h2>Equipe</h2><span class="count" id="eqInfo"></span></div>
     <div class="sec"><p class="hint">Quem se cadastra aparece aqui como <b>aguardando</b>. Libere o acesso, confira se a pessoa é de <b>Agências</b> ou do <b>Físico</b> e escolha o tipo de acesso: <b>Vendedor</b> vê só as próprias propostas; <b>Supervisor</b> vê as suas e as de quem estiver ligado a ele; <b>Admin</b> vê tudo e cuida de Tarifas e Equipe. <b>Inativo</b> tira o acesso mas guarda o cadastro; <b>Excluir</b> remove a pessoa da equipe (as propostas que ela fez continuam no histórico).</p>
+    <details class="eqNovo" id="eqNovo"><summary class="btn sm">＋ Criar acesso</summary>
+      <div class="eqForm">
+        <label>Nome<input id="nvNome" autocomplete="off"></label>
+        <label>E-mail<input id="nvEmail" type="email" autocomplete="off"></label>
+        <label>WhatsApp<input id="nvWhats" type="tel" autocomplete="off" placeholder="(11) 99999-9999"></label>
+        <label>Setor<select id="nvTipo"><option value="agencias">Agências</option><option value="fisico">Físico</option></select></label>
+        <label>Tipo de acesso<select id="nvPapel"><option value="vendedor">Vendedor</option><option value="supervisor">Supervisor</option><option value="admin">Admin</option></select></label>
+        <label id="nvSupRow">Supervisor<select id="nvSup"><option value="">— nenhum —</option></select></label>
+        <button class="btn" type="button" id="nvGo">Criar acesso</button>
+      </div>
+      <p class="hint">A pessoa recebe um e-mail para criar a própria senha (veja também a caixa de spam). O acesso já fica liberado.</p>
+      <p class="status" id="nvSt"></p></details>
     <div class="tbl-wrap"><table class="t eq-t"><thead><tr><th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Setor</th><th>Tipo de acesso</th><th>Supervisor</th><th>Acesso</th><th>Cadastro</th><th></th></tr></thead><tbody id="eqBody"></tbody></table></div></div>
     <div class="sec"><h3>Importar dados</h3><p class="hint">Use uma vez para trazer agências, histórico e configurações do sistema antigo (arquivo .json enviado pelo Claude).</p>
     <input type="file" id="eqFile" accept="application/json"> <span class="status" id="eqSt"></span></div></section>`;
@@ -351,6 +369,7 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
     const e=t=>String(t||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
     const isM=r=>ADMINS.includes((r.email||"").toLowerCase());const pap=r=>isM(r)?"master":r.admin?"admin":(r.papel||"vendedor");
     const sups=rows.filter(r=>pap(r)==="supervisor");
+    const nvSup=q$("#nvSup"),keep=nvSup.value;nvSup.innerHTML='<option value="">— nenhum —</option>'+sups.map(x=>`<option value="${e(x.id)}">${e(x.nome)}</option>`).join("");nvSup.value=keep;
     q$("#eqBody").innerHTML=rows.map(r=>`<tr data-u="${e(r.id)}"><td>${e(r.nome)}${isM(r)?' <span class="meta">(master)</span>':""}</td><td>${e(r.email)}</td><td>${e(r.whats||"—")}</td>
       <td><select data-f="tipo"><option value="agencias"${r.tipo==="agencias"?" selected":""}>Agências</option><option value="fisico"${r.tipo==="fisico"?" selected":""}>Físico</option></select></td>
       <td>${isM(r)?"Master":`<select data-f="papel">${[["vendedor","Vendedor"],["supervisor","Supervisor"],["admin","Admin"]].map(([v,t])=>`<option value="${v}"${pap(r)===v?" selected":""}>${t}</option>`).join("")}</select>`}</td>
@@ -364,6 +383,28 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
     if(pend!==id){pend=id;b.textContent="Confirmar exclusão";setTimeout(()=>{if(pend===id){pend=null;b.textContent="Excluir"}},5000);return}
     pend=null;b.disabled=true;try{await fs.doc("usuarios/"+id).delete();alertMsg("Pessoa excluída da equipe.")}catch(e){b.disabled=false;alertMsg("Não foi possível excluir.")}});
   const alertMsg=t=>{q$("#eqSt").textContent=t};
+  q$("#nvPapel").onchange=()=>{q$("#nvSupRow").hidden=q$("#nvPapel").value!=="vendedor"};
+  q$("#nvGo").onclick=async()=>{const st=t=>{q$("#nvSt").textContent=t};
+    const nome=q$("#nvNome").value.trim(),email=q$("#nvEmail").value.trim().toLowerCase(),whats=q$("#nvWhats").value.trim(),
+      tipo=q$("#nvTipo").value,papel=q$("#nvPapel").value,sup=papel==="vendedor"?q$("#nvSup").value:"";
+    if(!nome||!/^\S+@\S+\.\S+$/.test(email)){st("Preencha o nome e um e-mail válido.");return}
+    const btn=q$("#nvGo");btn.disabled=true;st("Criando acesso…");
+    // app secundário: criar o login não desconecta você
+    const sec=(firebase.apps||[]).find(a=>a.name==="criar")||firebase.initializeApp(CFG,"criar");const sa=sec.auth();
+    try{try{await sa.setPersistence(firebase.auth.Auth.Persistence.NONE)}catch(e){}
+      try{sa.languageCode="pt"}catch(e){}
+      const tmp=Array.from(crypto.getRandomValues(new Uint8Array(18)),b=>("0"+b.toString(16)).slice(-2)).join("")+"Aa1!";
+      const c=await sa.createUserWithEmailAndPassword(email,tmp);const uid=c.user.uid;
+      await sec.firestore().doc("usuarios/"+uid).set({nome,email,whats,tipo,ativo:false,admin:false,criadoEm:new Date().toISOString()});
+      try{await sa.sendPasswordResetEmail(email)}catch(e){}
+      await sa.signOut();
+      await fs.doc("usuarios/"+uid).update({ativo:true,liberadoEm:new Date().toISOString(),papel,admin:papel==="admin",sup,criadoPor:auth.currentUser.uid});
+      ["#nvNome","#nvEmail","#nvWhats"].forEach(x=>q$(x).value="");
+      st(`Acesso criado para ${nome}. Enviamos para ${email} o link para criar a senha.`)}
+    catch(e){try{await sa.signOut()}catch(_){}
+      st(e&&e.code==="auth/email-already-in-use"?"Esse e-mail já tem cadastro. Se a pessoa aparece na lista, é só liberar o acesso; se não aparece, ela pode entrar e usar \"Esqueci a senha\".":
+         e&&e.code==="auth/invalid-email"?"E-mail inválido.":"Não foi possível criar o acesso ("+(e&&e.code||e)+").")}
+    finally{btn.disabled=false}};
   q$("#eqFile").addEventListener("change",async ev=>{const f=ev.target.files[0];if(!f)return;alertMsg("Lendo arquivo…");
     try{const data=JSON.parse(await f.text());let n=0,tot=0;for(const c in data)tot+=Object.keys(data[c]).length;
       for(const c in data){const ids=Object.keys(data[c]);for(let i=0;i<ids.length;i+=400){const batch=fs.batch();ids.slice(i,i+400).forEach(id=>batch.set(fs.collection(c).doc(id),data[c][id]));await batch.commit();n+=Math.min(400,ids.length-i);alertMsg(`Importando… ${n} de ${tot}`)}}
