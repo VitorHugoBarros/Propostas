@@ -393,11 +393,15 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
       </div>
       <p class="hint">A pessoa recebe um e-mail para criar a própria senha (veja também a caixa de spam). O acesso já fica liberado.</p>
       <p class="status" id="nvSt"></p></details>
-    <div class="tbl-wrap"><table class="t eq-t"><thead><tr><th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Setor</th><th>Tipo de acesso</th><th>Supervisor</th><th>Acesso</th><th>Cadastro</th><th></th></tr></thead><tbody id="eqBody"></tbody></table></div></div>
+    <div class="tbl-wrap"><table class="t eq-t"><thead><tr><th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Setor</th><th>Tipo de acesso</th><th>Supervisor</th><th>Acesso</th><th>Cadastro</th><th></th></tr></thead><tbody id="eqBody"></tbody></table></div>
+    <div id="cvBox" hidden style="margin-top:18px"><h3>Convite enviado · aguardando o primeiro acesso</h3>
+      <p class="hint">Essas pessoas já receberam o link para criar a senha. Assim que entrarem pela primeira vez, passam para a lista acima com o acesso liberado.</p>
+      <div class="tbl-wrap"><table class="t"><thead><tr><th>Nome</th><th>E-mail</th><th>Setor</th><th>Tipo de acesso</th><th>Supervisor</th><th>Enviado em</th><th></th></tr></thead><tbody id="cvBody"></tbody></table></div>
+      <p class="status" id="cvSt" style="text-align:left"></p></div></div>
     <div class="sec"><h3>Importar dados</h3><p class="hint">Use uma vez para trazer agências, histórico e configurações do sistema antigo (arquivo .json enviado pelo Claude).</p>
     <input type="file" id="eqFile" accept="application/json"> <span class="status" id="eqSt"></span></div></section>`;
   const last=[...document.querySelectorAll("[data-view]")].pop();last.parentNode.insertBefore(v,last.nextSibling);
-  fs.collection("usuarios").onSnapshot(s=>{const rows=s.docs.map(d=>Object.assign({id:d.id},d.data()));EQROWS=rows;rows.sort((a,b)=>(a.ativo-b.ativo)||(a.nome||"").localeCompare(b.nome||""));
+  fs.collection("usuarios").onSnapshot(s=>{const rows=s.docs.map(d=>Object.assign({id:d.id},d.data()));EQROWS=rows;try{renderCv()}catch(_){};rows.sort((a,b)=>(a.ativo-b.ativo)||(a.nome||"").localeCompare(b.nome||""));
     q$("#cntEq").textContent=rows.filter(r=>!r.ativo).length||rows.length;q$("#eqInfo").textContent=`${rows.length} pessoa(s) · ${rows.filter(r=>!r.ativo).length} aguardando`;
     const e=t=>String(t||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
     const isM=r=>ADMINS.includes((r.email||"").toLowerCase());const pap=r=>isM(r)?"master":r.admin?"admin":(r.papel||"vendedor");
@@ -416,6 +420,16 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
     if(pend!==id){pend=id;b.textContent="Confirmar exclusão";setTimeout(()=>{if(pend===id){pend=null;b.textContent="Excluir"}},5000);return}
     pend=null;b.disabled=true;try{const em=((EQROWS.find(r=>r.id===id)||{}).email||"").toLowerCase();await fs.doc("usuarios/"+id).delete();if(em){try{await fs.doc("convites/"+em).delete()}catch(_){}}alertMsg("Pessoa excluída da equipe.")}catch(e){b.disabled=false;alertMsg("Não foi possível excluir.")}});
   const alertMsg=t=>{q$("#eqSt").textContent=t};
+  let CVROWS=[];const renderCv=()=>{const e=t=>String(t||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+    const live=new Set(EQROWS.map(r=>(r.email||"").toLowerCase()));const rows=CVROWS.filter(c=>!live.has(c.id));q$("#cvBox").hidden=!rows.length;
+    const nm=id=>(EQROWS.find(r=>r.id===id)||{}).nome||"—";const P={vendedor:"Vendedor",supervisor:"Supervisor",admin:"Admin"};
+    q$("#cvBody").innerHTML=rows.map(c=>`<tr data-cv="${e(c.id)}"><td>${e(c.nome)}</td><td>${e(c.email||c.id)}</td><td>${c.tipo==="fisico"?"Físico":"Agências"}</td><td>${P[c.papel]||"Vendedor"}</td>
+      <td>${c.papel==="vendedor"&&c.sup?e(nm(c.sup)):"—"}</td><td>${e((c.criadoEm||"").slice(0,10).split("-").reverse().join("/"))}</td>
+      <td style="white-space:nowrap"><button class="btn sm" type="button" data-cvre>Reenviar link</button> <button class="btn sm ghost danger" type="button" data-cvdel>Cancelar</button></td></tr>`).join("")};
+  fs.collection("convites").onSnapshot(s=>{CVROWS=s.docs.map(d=>Object.assign({id:d.id},d.data()));renderCv()},()=>{});
+  q$("#cvBody").addEventListener("click",async ev=>{const tr=ev.target.closest("tr[data-cv]");if(!tr)return;const id=tr.dataset.cv;const st=t=>{q$("#cvSt").textContent=t};
+    if(ev.target.closest("[data-cvre]")){try{await auth.sendPasswordResetEmail(id);st("Link reenviado para "+id+". Peça para olhar também o spam.")}catch(e){st("Não foi possível reenviar ("+(e.code||e)+").")}}
+    if(ev.target.closest("[data-cvdel]")){try{await fs.doc("convites/"+id).delete();st("Convite cancelado.")}catch(e){st("Não foi possível cancelar.")}}});
   q$("#nvPapel").onchange=()=>{q$("#nvSupRow").hidden=q$("#nvPapel").value!=="vendedor"};
   q$("#nvGo").onclick=async()=>{const st=t=>{q$("#nvSt").textContent=t};
     const nome=q$("#nvNome").value.trim(),email=q$("#nvEmail").value.trim().toLowerCase(),whats=q$("#nvWhats").value.trim(),
