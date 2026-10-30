@@ -330,6 +330,10 @@ async function check(u){
   if(!u){q$("#authGate").hidden=false;setMode("login");const b=q$("#userBar");if(b)b.remove();return}
   const master=ADMINS.includes((u.email||"").toLowerCase());let admin=master;
   let p=null;try{const s=await fs.doc("usuarios/"+u.uid).get();p=s.exists?s.data():null}catch(e){}
+  if(!p&&u.email){try{const em=u.email.toLowerCase(),cv=await fs.doc("convites/"+em).get();
+    if(cv.exists){const c=cv.data();p={nome:c.nome||em,email:em,whats:c.whats||"",tipo:c.tipo||"agencias",papel:c.papel||"vendedor",admin:!!c.admin,sup:c.sup||"",
+      ativo:true,criadoEm:c.criadoEm||new Date().toISOString(),liberadoEm:new Date().toISOString(),criadoPor:c.criadoPor||""};
+      await fs.doc("usuarios/"+u.uid).set(p);try{await fs.doc("convites/"+em).delete()}catch(e){}}}catch(e){p=null}}
   if(admin){try{if(!p){p={nome:"Vitor Barros",email:u.email,tipo:"agencias",ativo:false,admin:false,criadoEm:new Date().toISOString()};await fs.doc("usuarios/"+u.uid).set(p)}
     if(!p.ativo||!p.admin){await fs.doc("usuarios/"+u.uid).update({ativo:true,admin:true});p.ativo=true;p.admin=true}}catch(e){p=p||{nome:"Vitor Barros",email:u.email}}}
   if(!master&&p&&p.ativo&&p.admin)admin=true;
@@ -371,6 +375,7 @@ function openPerfil(u,primeira){let d=q$("#perfilDlg");if(!d){d=document.createE
   if(d.showModal&&!d.open)d.showModal()}
 
 /* ---- equipe (admin) ---- */
+let EQROWS=[];
 function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||document.querySelector('[data-tab="equipe"]'))return;
   const b=document.createElement("button");b.type="button";b.setAttribute("role","tab");b.dataset.tab="equipe";b.setAttribute("aria-selected","false");b.innerHTML='Equipe<span class="cnt" id="cntEq">0</span>';nav.appendChild(b);
   const v=document.createElement("div");v.dataset.view="equipe";v.hidden=true;
@@ -392,7 +397,7 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
     <div class="sec"><h3>Importar dados</h3><p class="hint">Use uma vez para trazer agências, histórico e configurações do sistema antigo (arquivo .json enviado pelo Claude).</p>
     <input type="file" id="eqFile" accept="application/json"> <span class="status" id="eqSt"></span></div></section>`;
   const last=[...document.querySelectorAll("[data-view]")].pop();last.parentNode.insertBefore(v,last.nextSibling);
-  fs.collection("usuarios").onSnapshot(s=>{const rows=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(a.ativo-b.ativo)||(a.nome||"").localeCompare(b.nome||""));
+  fs.collection("usuarios").onSnapshot(s=>{const rows=s.docs.map(d=>Object.assign({id:d.id},d.data()));EQROWS=rows;rows.sort((a,b)=>(a.ativo-b.ativo)||(a.nome||"").localeCompare(b.nome||""));
     q$("#cntEq").textContent=rows.filter(r=>!r.ativo).length||rows.length;q$("#eqInfo").textContent=`${rows.length} pessoa(s) · ${rows.filter(r=>!r.ativo).length} aguardando`;
     const e=t=>String(t||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
     const isM=r=>ADMINS.includes((r.email||"").toLowerCase());const pap=r=>isM(r)?"master":r.admin?"admin":(r.papel||"vendedor");
@@ -409,13 +414,14 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
     try{await fs.doc("usuarios/"+id).update(up)}catch(e){alertMsg("Não foi possível salvar.")}});
   let pend=null;q$("#eqBody").addEventListener("click",async ev=>{const b=ev.target.closest("[data-del]");if(!b)return;const id=b.closest("tr").dataset.u;
     if(pend!==id){pend=id;b.textContent="Confirmar exclusão";setTimeout(()=>{if(pend===id){pend=null;b.textContent="Excluir"}},5000);return}
-    pend=null;b.disabled=true;try{await fs.doc("usuarios/"+id).delete();alertMsg("Pessoa excluída da equipe.")}catch(e){b.disabled=false;alertMsg("Não foi possível excluir.")}});
+    pend=null;b.disabled=true;try{const em=((EQROWS.find(r=>r.id===id)||{}).email||"").toLowerCase();await fs.doc("usuarios/"+id).delete();if(em){try{await fs.doc("convites/"+em).delete()}catch(_){}}alertMsg("Pessoa excluída da equipe.")}catch(e){b.disabled=false;alertMsg("Não foi possível excluir.")}});
   const alertMsg=t=>{q$("#eqSt").textContent=t};
   q$("#nvPapel").onchange=()=>{q$("#nvSupRow").hidden=q$("#nvPapel").value!=="vendedor"};
   q$("#nvGo").onclick=async()=>{const st=t=>{q$("#nvSt").textContent=t};
     const nome=q$("#nvNome").value.trim(),email=q$("#nvEmail").value.trim().toLowerCase(),whats=q$("#nvWhats").value.trim(),
       tipo=q$("#nvTipo").value,papel=q$("#nvPapel").value,sup=papel==="vendedor"?q$("#nvSup").value:"";
     if(!nome||!/^\S+@\S+\.\S+$/.test(email)){st("Preencha o nome e um e-mail válido.");return}
+    if(EQROWS.some(r=>(r.email||"").toLowerCase()===email)){st("Essa pessoa já está na lista abaixo. É só ajustar o acesso dela por lá.");return}
     const btn=q$("#nvGo");btn.disabled=true;st("Criando acesso…");
     // app secundário: criar o login não desconecta você
     const sec=(firebase.apps||[]).find(a=>a.name==="criar")||firebase.initializeApp(CFG,"criar");const sa=sec.auth();
@@ -430,7 +436,15 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
       ["#nvNome","#nvEmail","#nvWhats"].forEach(x=>q$(x).value="");
       st(`Acesso criado para ${nome}. Enviamos para ${email} o link para criar a senha.`)}
     catch(e){try{await sa.signOut()}catch(_){}
-      st(e&&e.code==="auth/email-already-in-use"?"Esse e-mail já tem cadastro. Se a pessoa aparece na lista, é só liberar o acesso; se não aparece, ela pode entrar e usar \"Esqueci a senha\".":
+      if(e&&e.code==="auth/email-already-in-use"){
+        // e-mail já usado antes (ex.: pessoa excluída): deixa um convite e manda o link de senha; ao entrar, o cadastro é criado com estes dados
+        try{await fs.doc("convites/"+email).set({nome,email,whats,tipo,papel,admin:papel==="admin",sup,criadoEm:new Date().toISOString(),criadoPor:auth.currentUser.uid});
+          try{await sa.sendPasswordResetEmail(email)}catch(_){}
+          ["#nvNome","#nvEmail","#nvWhats"].forEach(x=>q$(x).value="");
+          st(`Esse e-mail já tinha sido usado antes, então reaproveitamos o login. Enviamos para ${email} o link para criar a senha; quando ${nome} entrar pela primeira vez, aparece aqui na lista com o acesso liberado.`)}
+        catch(e2){st("Não foi possível criar o acesso ("+(e2&&e2.code||e2)+"). Confira se as regras do Firebase estão atualizadas.")}
+        btn.disabled=false;return}
+      st(
          e&&e.code==="auth/invalid-email"?"E-mail inválido.":"Não foi possível criar o acesso ("+(e&&e.code||e)+").")}
     finally{btn.disabled=false}};
   q$("#eqFile").addEventListener("change",async ev=>{const f=ev.target.files[0];if(!f)return;alertMsg("Lendo arquivo…");
