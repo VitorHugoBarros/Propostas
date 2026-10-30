@@ -294,14 +294,16 @@ let started=false,signingUp=false;
 auth.onAuthStateChanged(u=>{if(!signingUp)check(u)});
 async function check(u){
   if(!u){q$("#authGate").hidden=false;setMode("login");const b=q$("#userBar");if(b)b.remove();return}
-  const admin=ADMINS.includes((u.email||"").toLowerCase());
+  const master=ADMINS.includes((u.email||"").toLowerCase());let admin=master;
   let p=null;try{const s=await fs.doc("usuarios/"+u.uid).get();p=s.exists?s.data():null}catch(e){}
   if(admin){try{if(!p){p={nome:"Vitor Barros",email:u.email,tipo:"agencias",ativo:false,admin:false,criadoEm:new Date().toISOString()};await fs.doc("usuarios/"+u.uid).set(p)}
     if(!p.ativo||!p.admin){await fs.doc("usuarios/"+u.uid).update({ativo:true,admin:true});p.ativo=true;p.admin=true}}catch(e){p=p||{nome:"Vitor Barros",email:u.email}}}
+  if(!master&&p&&p.ativo&&p.admin)admin=true;
   if(!admin&&(!p||!p.ativo)){q$("#authGate").hidden=false;setMode("login");
     msg(p?"Cadastro recebido! Seu acesso ainda não foi liberado. Avise o Vitor.":"Seu usuário não tem cadastro no sistema.","ok");
     q$("#agToggle").textContent="Sair";q$("#agToggle").onclick=()=>auth.signOut().then(()=>{q$("#agToggle").onclick=()=>setMode(mode==="login"?"signup":"login");setMode("login")});return}
-  window.BRUSH.perfil=Object.assign({},p,{admin});
+  window.BRUSH.perfil=Object.assign({},p,{admin,master,papel:master||admin?"admin":(p.papel||"vendedor")});
+  if(window.BRUSH.perfil.papel==="supervisor")watchEquipe(u.uid);
   q$("#authGate").hidden=true;
   if(!q$("#userBar")){const b=document.createElement("div");b.id="userBar";b.innerHTML=`<span id="ubName"></span><button type="button" id="ubPerfil">Meu perfil</button><button type="button" id="ubSair">Sair</button>`;document.body.appendChild(b);
     q$("#ubSair").onclick=()=>auth.signOut().then(()=>location.reload());q$("#ubPerfil").onclick=()=>openPerfil(u)}
@@ -310,6 +312,8 @@ async function check(u){
   if(started)applyTabs();
   if(!started){started=true;const go=()=>{if(window.__startLive){applyTabs();window.__startLive();if(admin)buildEquipe()}else setTimeout(go,50)};go()}
 }
+/* supervisor: equipe = quem tem sup == eu */
+let eqUnsub=null;function watchEquipe(uid){if(eqUnsub)return;eqUnsub=fs.collection("usuarios").onSnapshot(s=>{window.BRUSH.equipe=s.docs.filter(d=>(d.data()||{}).sup===uid).map(d=>d.id);if(window.__onEquipe)window.__onEquipe()},()=>{})}
 /* abas por perfil: Tarifas só admin; Agências só setor agências (ou admin) */
 function applyTabs(){const pf=window.BRUSH.perfil||{};const ad=!!pf.admin;
   const hide={tarifas:!ad,agencias:!ad&&pf.tipo!=="agencias"};
@@ -337,20 +341,24 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
   const b=document.createElement("button");b.type="button";b.setAttribute("role","tab");b.dataset.tab="equipe";b.setAttribute("aria-selected","false");b.innerHTML='Equipe<span class="cnt" id="cntEq">0</span>';nav.appendChild(b);
   const v=document.createElement("div");v.dataset.view="equipe";v.hidden=true;
   v.innerHTML=`<section class="pane"><div class="pane-h"><h2>Equipe</h2><span class="count" id="eqInfo"></span></div>
-    <div class="sec"><p class="hint">Quem se cadastra aparece aqui como <b>aguardando</b>. Libere o acesso e confira se a pessoa é de <b>Agências</b> ou do <b>Físico</b>. <b>Inativo</b> tira o acesso mas guarda o cadastro; <b>Excluir</b> remove a pessoa da equipe (as propostas que ela fez continuam no histórico).</p>
-    <div class="tbl-wrap"><table class="t eq-t"><thead><tr><th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Setor</th><th>Acesso</th><th>Cadastro</th><th></th></tr></thead><tbody id="eqBody"></tbody></table></div></div>
+    <div class="sec"><p class="hint">Quem se cadastra aparece aqui como <b>aguardando</b>. Libere o acesso, confira se a pessoa é de <b>Agências</b> ou do <b>Físico</b> e escolha o tipo de acesso: <b>Vendedor</b> vê só as próprias propostas; <b>Supervisor</b> vê as suas e as de quem estiver ligado a ele; <b>Admin</b> vê tudo e cuida de Tarifas e Equipe. <b>Inativo</b> tira o acesso mas guarda o cadastro; <b>Excluir</b> remove a pessoa da equipe (as propostas que ela fez continuam no histórico).</p>
+    <div class="tbl-wrap"><table class="t eq-t"><thead><tr><th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Setor</th><th>Tipo de acesso</th><th>Supervisor</th><th>Acesso</th><th>Cadastro</th><th></th></tr></thead><tbody id="eqBody"></tbody></table></div></div>
     <div class="sec"><h3>Importar dados</h3><p class="hint">Use uma vez para trazer agências, histórico e configurações do sistema antigo (arquivo .json enviado pelo Claude).</p>
     <input type="file" id="eqFile" accept="application/json"> <span class="status" id="eqSt"></span></div></section>`;
   const last=[...document.querySelectorAll("[data-view]")].pop();last.parentNode.insertBefore(v,last.nextSibling);
   fs.collection("usuarios").onSnapshot(s=>{const rows=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(a.ativo-b.ativo)||(a.nome||"").localeCompare(b.nome||""));
     q$("#cntEq").textContent=rows.filter(r=>!r.ativo).length||rows.length;q$("#eqInfo").textContent=`${rows.length} pessoa(s) · ${rows.filter(r=>!r.ativo).length} aguardando`;
     const e=t=>String(t||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-    q$("#eqBody").innerHTML=rows.map(r=>`<tr data-u="${e(r.id)}"><td>${e(r.nome)}${r.admin?' <span class="meta">(admin)</span>':""}</td><td>${e(r.email)}</td><td>${e(r.whats||"—")}</td>
+    const isM=r=>ADMINS.includes((r.email||"").toLowerCase());const pap=r=>isM(r)?"master":r.admin?"admin":(r.papel||"vendedor");
+    const sups=rows.filter(r=>pap(r)==="supervisor");
+    q$("#eqBody").innerHTML=rows.map(r=>`<tr data-u="${e(r.id)}"><td>${e(r.nome)}${isM(r)?' <span class="meta">(master)</span>':""}</td><td>${e(r.email)}</td><td>${e(r.whats||"—")}</td>
       <td><select data-f="tipo"><option value="agencias"${r.tipo==="agencias"?" selected":""}>Agências</option><option value="fisico"${r.tipo==="fisico"?" selected":""}>Físico</option></select></td>
+      <td>${isM(r)?"Master":`<select data-f="papel">${[["vendedor","Vendedor"],["supervisor","Supervisor"],["admin","Admin"]].map(([v,t])=>`<option value="${v}"${pap(r)===v?" selected":""}>${t}</option>`).join("")}</select>`}</td>
+      <td>${pap(r)==="vendedor"?`<select data-f="sup"><option value="">— nenhum —</option>${sups.map(x=>`<option value="${e(x.id)}"${r.sup===x.id?" selected":""}>${e(x.nome)}</option>`).join("")}</select>`:'<span class="meta">—</span>'}</td>
       <td><select data-f="ativo"><option value="1"${r.ativo?" selected":""}>Liberado</option><option value="0"${!r.ativo?" selected":""}>${!r.ativo&&!r.liberadoEm?"Aguardando":"Inativo"}</option></select></td><td>${e((r.criadoEm||"").slice(0,10).split("-").reverse().join("/"))}</td>
-      <td>${r.admin||r.id===auth.currentUser.uid?"":`<button class="btn sm ghost danger" type="button" data-del>Excluir</button>`}</td></tr>`).join("")},()=>{});
+      <td>${isM(r)||r.id===auth.currentUser.uid?"":`<button class="btn sm ghost danger" type="button" data-del>Excluir</button>`}</td></tr>`).join("")},()=>{});
   q$("#eqBody").addEventListener("change",async ev=>{const sel=ev.target.closest("[data-f]");if(!sel)return;const id=sel.closest("tr").dataset.u;const f=sel.dataset.f;
-    const up=f==="ativo"?(sel.value==="1"?{ativo:true,liberadoEm:new Date().toISOString()}:{ativo:false,inativadoEm:new Date().toISOString()}):{[f]:sel.value};
+    const up=f==="ativo"?(sel.value==="1"?{ativo:true,liberadoEm:new Date().toISOString()}:{ativo:false,inativadoEm:new Date().toISOString()}):f==="papel"?{papel:sel.value,admin:sel.value==="admin"}:{[f]:sel.value};
     try{await fs.doc("usuarios/"+id).update(up)}catch(e){alertMsg("Não foi possível salvar.")}});
   let pend=null;q$("#eqBody").addEventListener("click",async ev=>{const b=ev.target.closest("[data-del]");if(!b)return;const id=b.closest("tr").dataset.u;
     if(pend!==id){pend=id;b.textContent="Confirmar exclusão";setTimeout(()=>{if(pend===id){pend=null;b.textContent="Excluir"}},5000);return}
@@ -1002,11 +1010,16 @@ $("#saveBtn").addEventListener("click",async()=>{if(!LIVE.db)return setStatus("H
   const b=$("#saveBtn");b.disabled=true;setStatus("Salvando…");
   try{await saveProposal();setStatus(`Proposta nº ${S.num} salva no histórico.`,"ok")}catch(err){setStatus("Não foi possível salvar ("+(err&&err.code||"erro")+"). Tente de novo.","err")}finally{b.disabled=!nServ()}});
 
+/* quem vê o quê no histórico: admin tudo; supervisor as suas + da equipe; vendedor só as suas */
+function canSee(p){const B=window.BRUSH;if(!B||!B.perfil)return true;const pf=B.perfil;if(pf.admin)return true;
+  const me=LIVE.me;if(!me)return false;if(p.por===me)return true;return pf.papel==="supervisor"&&(B.equipe||[]).includes(p.por)}
+window.__onEquipe=()=>{try{renderHist()}catch(e){}};
 function renderHist(){
-  $("#cntHist").textContent=LIVE.props.length;
+  const VIS=LIVE.props.filter(canSee);
+  $("#cntHist").textContent=VIS.length;
   const q=norm($("#hq").value.trim()),st=$("#hstatus").value;
-  const rows=LIVE.props.filter(p=>(!st||p.status===st)&&(!q||norm(`${p.num} ${p.cliente} ${p.agencia} ${p.titulo}`).includes(q)));
-  const all=LIVE.props,cnt=s=>all.filter(p=>p.status===s).length,sum=s=>all.filter(p=>p.status===s).reduce((a,p)=>a+(p.total||0),0);
+  const rows=VIS.filter(p=>(!st||p.status===st)&&(!q||norm(`${p.num} ${p.cliente} ${p.agencia} ${p.titulo}`).includes(q)));
+  const all=VIS,cnt=s=>all.filter(p=>p.status===s).length,sum=s=>all.filter(p=>p.status===s).reduce((a,p)=>a+(p.total||0),0);
   const env=all.length-cnt("Rascunho"); // tudo que já foi enviado à agência: Enviada, Aprovada ou Perdida
   $("#kpis").innerHTML=[["Propostas",all.length,`${cnt("Enviada")} aguardando resposta`],["Aprovadas",cnt("Aprovada"),brl.format(sum("Aprovada"))],
     ["Conversão",env?Math.round(cnt("Aprovada")/env*100)+"%":"—",env?`${cnt("Aprovada")} aprovada${cnt("Aprovada")!==1?"s":""} de ${env} enviada${env!==1?"s":""} à agência`:"nenhuma proposta enviada ainda"],["Em aberto",brl.format(sum("Enviada")),"valor enviado sem resposta"]]
@@ -1014,7 +1027,7 @@ function renderHist(){
   $("#histBody").innerHTML=rows.length?rows.map(p=>`<tr data-id="${esc(p.id)}"><td><b>${p.num}</b></td><td>${fmtDate(p.criadoEm)}</td><td>${esc(p.agencia||"—")}</td><td>${esc(p.cliente||"—")}<div class="meta">${esc(p.titulo||"")}</div></td>
     <td class="n">${brl.format(p.total||0)}</td><td><select data-st aria-label="Situação">${STATUSES.map(s=>`<option${s===p.status?" selected":""}>${s}</option>`).join("")}</select></td>
     <td>${esc(LIVE.names[p.por]||p.porNome||"—")}</td><td>${p.altPor||p.altNome?`${esc(LIVE.names[p.altPor]||p.altNome||"—")}<div class="meta">${fmtDate(p.atualizadoEm)} ${p.atualizadoEm?new Date(p.atualizadoEm).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):""}${p.altO?" · "+esc(p.altO):""}</div>`:"—"}</td><td style="white-space:nowrap"><button class="btn sm" type="button" data-open>Abrir</button> <button class="btn sm ghost" type="button" data-dup>Duplicar</button> <button class="btn sm ghost danger" type="button" data-pdel>Excluir</button></td></tr>`).join("")
-    :`<tr><td colspan="9" class="empty">${LIVE.props.length?"Nenhuma proposta com esses filtros.":"Nenhuma proposta salva ainda. Elas aparecem aqui ao gerar o PDF ou clicar em Salvar no histórico."}</td></tr>`;
+    :`<tr><td colspan="9" class="empty">${VIS.length?"Nenhuma proposta com esses filtros.":"Nenhuma proposta salva ainda. Elas aparecem aqui ao gerar o PDF ou clicar em Salvar no histórico."}</td></tr>`;
 }
 $("#hq").addEventListener("input",renderHist);$("#hstatus").addEventListener("change",renderHist);
 $("#histBody").addEventListener("change",async e=>{if(!e.target.matches("[data-st]"))return;const id=e.target.closest("tr").dataset.id;
