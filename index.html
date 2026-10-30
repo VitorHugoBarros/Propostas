@@ -197,6 +197,33 @@ table.t select{padding:4px 6px;border:1px solid var(--rule);border-radius:6px;ba
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:no-preference){.btn,.chip,nav.tabs button{transition:background .15s,border-color .15s,color .15s}}
 </style>
+<style id="brush-theme">
+/* paleta Brasileiros em Ushuaia (azul + dourado do logo) — só a tela do site */
+:root{
+  --bg:#edf2f7; --surface:#ffffff; --surface-2:#f4f7fb; --ink:#12202e; --muted:#566676; --rule:#d3dde8;
+  --accent:#0a66a8; --accent-ink:#ffffff; --accent-soft:#dceaf6; --info-bg:#e5eff8; --info-ink:#0d4a7a;
+  --gold:#e8a010; --gold-ink:#7a4f00; --gold-soft:#fdf0d3;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1520; --surface:#13212f; --surface-2:#182a3b; --ink:#e6edf4; --muted:#9fb1c2; --rule:#273b4f;
+  --accent:#55a8e6; --accent-ink:#04203a; --accent-soft:#143150; --info-bg:#132e47; --info-ink:#9ccbf0;
+  --gold:#f0b030; --gold-ink:#f6cd73; --gold-soft:#3a2c10;
+}}
+:root[data-theme="dark"]{
+  --bg:#0c1520; --surface:#13212f; --surface-2:#182a3b; --ink:#e6edf4; --muted:#9fb1c2; --rule:#273b4f;
+  --accent:#55a8e6; --accent-ink:#04203a; --accent-soft:#143150; --info-bg:#132e47; --info-ink:#9ccbf0;
+  --gold:#f0b030; --gold-ink:#f6cd73; --gold-soft:#3a2c10;
+}
+body{border-top:4px solid var(--gold)}
+.badge{color:var(--gold-ink);background:var(--gold-soft)}
+nav.tabs button[aria-selected="true"]{border-bottom-color:var(--gold);color:var(--accent)}
+nav.tabs button[aria-selected="true"] .cnt{background:var(--gold-soft);border-color:transparent;color:var(--gold-ink)}
+:root{--navy:#0b3a63;--navy-ink:#ffffff}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--navy:#dcebf7;--navy-ink:#0b3a63}}
+:root[data-theme="dark"]{--navy:#dcebf7;--navy-ink:#0b3a63}
+.chip[aria-pressed="true"]{background:var(--navy);color:var(--navy-ink);border-color:var(--navy)}
+.seg button[aria-pressed="true"]{background:var(--navy);color:var(--navy-ink)}
+</style>
 </head>
 <body>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
