@@ -69,6 +69,14 @@ nav.tabs .cnt{font-size:11.5px;background:var(--surface-2);border:1px solid var(
 .btn.ghost:hover{color:var(--ink)}
 .btn.danger{color:var(--danger)}
 .btn.sm{padding:4px 9px;font-size:12.5px}
+.pg-box{display:grid;gap:8px;margin:4px 0 14px}
+.pg-box>label{font-size:12.5px;color:var(--muted);font-weight:500}
+.pg-quick{display:flex;gap:6px;flex-wrap:wrap}
+.pg-prev{font-size:12.5px;color:var(--muted);line-height:1.6}
+.pg-prev b{color:var(--ink);font-weight:600}
+.tx-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.tx-grid label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.tx-grid input{font:inherit;font-size:14px;padding:6px 8px;border:1px solid var(--rule);border-radius:8px;background:var(--surface);color:var(--ink);width:100%;box-sizing:border-box}
 .tag-cb{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.03em;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:1px 8px;margin-left:4px;vertical-align:middle}
 .item.combo{border-color:var(--accent)}
 .item.incb{background:var(--surface-2)}
@@ -583,6 +591,12 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
           <label><input type="checkbox" id="incluirCanc"> Política de cancelamento</label>
           <label><input type="checkbox" id="mostrarUnit"> Valor por pessoa na tabela</label>
         </div>
+        <div class="pg-box">
+          <label>Formas de pagamento no PDF</label>
+          <div class="chips" id="pgChips" role="group" aria-label="Formas de pagamento"></div>
+          <div class="pg-quick"><button class="btn sm" type="button" data-pgq="todas">Mostrar todas</button><button class="btn sm ghost" type="button" data-pgq="avista">Só à vista</button></div>
+          <div class="pg-prev" id="pgPrev"></div>
+        </div>
         <div class="fields">
           <div class="f wide"><label for="pagamento">Condições de pagamento</label><textarea id="pagamento" placeholder="Ex.: 30% na reserva e saldo até 30 dias antes do embarque."></textarea></div>
           <div class="f wide"><label for="obsGerais">Observações gerais</label><textarea id="obsGerais" placeholder="Informações que valem para toda a proposta."></textarea></div>
@@ -694,6 +708,10 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
       <div class="pane-h"><h2>Tarifas</h2><input class="search" id="tq" type="search" placeholder="Buscar passeio" style="width:260px"></div>
       <div id="dbOffTar"></div>
       <div class="banner" id="monitorInfo">Monitor diário de preços: aguardando a primeira verificação.</div>
+      <div class="sec" id="txSec"><h3>Taxas do cartão de crédito (%)</h3>
+        <p class="hint" style="margin-top:0">Valem para todas as bandeiras (Mastercard, Visa, Elo, American Express, Hipercard e Diners). O valor à vista (Pix) é o preço do site; no cartão, o sistema repassa a taxa para o cliente.</p>
+        <div class="tx-grid" id="txGrid"></div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:10px"><button class="btn primary" type="button" id="txSave">Salvar taxas</button><span class="status" id="txSt"></span></div></div>
       <p class="hint" style="padding:12px 16px 0">O valor "Site" é o preço do catálogo original. Ao mudar "Atual", o novo preço vale para todas as propostas novas da equipe. Propostas já montadas mantêm o valor que tinham.</p>
       <div class="tbl-wrap" style="margin-top:10px"><table class="t"><thead><tr><th>Passeio</th><th>Destino</th><th class="n">Site adulto</th><th class="n">Site criança</th><th class="n">Atual adulto</th><th class="n">Atual criança</th><th>Atualizado</th></tr></thead><tbody id="tarBody"></tbody></table></div>
     </section>
@@ -762,7 +780,7 @@ function cbInVal(cb){if(!cb.ini)return true;const [y,m,d]=cb.ini.split("-").map(
 function newHotel(hid,s){return{hid,ci:"",co:"",q:0,nq:1,a:num(s.adultos),c:num(s.criancas),valor:"",com:"",edit:null}}
 function newItem(id,s){const t=byId[id];return{id,a:num(s.adultos),c:num(s.criancas),data:"",pa:t.pa,pc:t.pc>0?t.pc:t.pa,priv:false,pp:"",com:"",edit:null}}
 function baseState(){return{exemplo:false,num:null,docId:null,status:"Rascunho",titulo:"",cliente:"",periodo:"",adultos:2,criancas:0,validade:isoPlus(15),moeda:"BRL",lang:"pt",cotacao:"",ajuste:"",
-  roteiroCompleto:false,incluirCanc:true,mostrarUnit:true,pagamento:"",obsGerais:"",com:{modo:"fixo",fixo:""},ag:{id:null,nome:"",contato:"",logo:""},itens:[],hoteis:[],combos:[]}}
+  roteiroCompleto:false,incluirCanc:true,mostrarUnit:true,pagamento:"",obsGerais:"",com:{modo:"fixo",fixo:""},ag:{id:null,nome:"",contato:"",logo:""},itens:[],hoteis:[],combos:[],pg:{av:true,px:[]}}}
 function exampleState(){
   const s=Object.assign(baseState(),{exemplo:true,titulo:"Patagônia: Ushuaia e El Calafate",cliente:"Casal Ferreira",periodo:"14 a 20 de dezembro de 2026",
     pagamento:"30% no ato da reserva e saldo até 30 dias antes do embarque.",obsGerais:"Valores sujeitos à disponibilidade no momento da reserva.",
@@ -771,6 +789,7 @@ function exampleState(){
   return s;
 }
 function normalize(s){const b=baseState();for(const k in b)if(s[k]===undefined)s[k]=b[k];
+  s.pg=Object.assign({av:true,px:[]},s.pg||{});s.pg.px=(s.pg.px||[]).map(Number).filter(n=>n>=1&&n<=12);
   s.combos=(s.combos||[]).filter(c=>CB[c.cid]).map(c=>Object.assign({uid:"",ini:"",a:0,c:0,pa:0,pc:0,com:""},c));s.com=Object.assign({modo:"fixo",fixo:""},s.com||{});s.ag=Object.assign({id:null,nome:"",contato:"",logo:""},s.ag||{});
   s.itens=(s.itens||[]).filter(i=>byId[i.id]&&(!i.cb||s.combos.some(c=>c.uid===i.cb))).map(i=>Object.assign({a:0,c:0,data:"",pa:0,pc:0,priv:false,pp:"",com:"",edit:null},i));
   if(s.ag.id==="__brush")s.ag.logo=BRUSH_LOGO;
@@ -792,6 +811,7 @@ async function initLive(){
   LIVE.db.collection("agencias").onSnapshot(s=>{LIVE.agencias=s.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>(a.nome||"").localeCompare(b.nome||""));
     {const a=S.ag.id&&LIVE.agencias.find(x=>x.id===S.ag.id);if(a&&a.logo&&a.logo!==S.ag.logo){S.ag.logo=a.logo;save();try{renderLogo()}catch(e){}}}renderAgSelect();renderAgList()},err);
   LIVE.db.collection("propostas").orderBy("num","desc").limit(1000).onSnapshot(s=>{LIVE.props=s.docs.map(d=>Object.assign({id:d.id},d.data()));renderHist();resolveNames()},err);
+  LIVE.db.doc("config/parcelas").onSnapshot(s2=>{LIVE.taxas=s2.exists&&Array.isArray(s2.data().taxas)?s2.data().taxas:null;renderTaxas();renderPg();renderOutputs(true)},()=>{});
   LIVE.db.collection("tarifas").onSnapshot(s=>{LIVE.tarifas=Object.fromEntries(s.docs.map(d=>[d.id,d.data()]).filter(x=>x[1].fonte!=="monitor"));applyTarifas()},err);
   fetch("monitor.json?v="+Date.now()).then(r=>r.ok?r.json():null).then(m=>{LIVE.monitor=m;renderMonitor()}).catch(()=>{});
   fetch("precos.json?v="+Date.now()).then(r=>r.ok?r.json():null).then(p=>{if(!p)return;for(const t of CATALOG){const x=p[String(t.id)];if(x&&isFinite(x.pa)){t.pa0=x.pa;t.pc0=isFinite(x.pc)?x.pc:t.pc0}}for(const c of COMBOS){const x=p["combo:"+c.id];if(x&&isFinite(x.pa)&&x.pa>0)c.pa=x.pa}applyTarifas()}).catch(()=>{});
@@ -957,6 +977,11 @@ function renderCatalog(){
 }
 
 /* ---------- money ---------- */
+// taxas do cartão por nº de parcelas (1x..12x), em %. Valor à vista (Pix) = preço do site; cartão = valor ÷ (1 − taxa).
+const TAXAS_DEF=[0,4.79,5.65,6.6,7.33,7.88,8.8,9.95,10.73,11.22,11.96,12.69];
+const taxas=()=>{const t=(LIVE&&LIVE.taxas)||TAXAS_DEF;return TAXAS_DEF.map((d,i)=>isFinite(+t[i])&&t[i]!==""&&t[i]!=null?+t[i]:d)};
+const cardTotal=(v,n)=>{const r=taxas()[n-1]/100;return Math.round(v/(1-r)*100)/100};
+const pgRows=v=>[...(S.pg.av?[{n:0,tot:v,parc:v}]:[]),...S.pg.px.slice().sort((a,b)=>a-b).map(n=>{const tot=cardTotal(v,n);return{n,tot,parc:Math.round(tot/n*100)/100}})];
 const factor=()=>1+num(S.ajuste)/100;
 const itemTotal=i=>i.cb?0:(i.priv?num(i.pp):(num(i.a)*num(i.pa)+num(i.c)*num(i.pc)))*factor();
 const hotelTotal=h=>num(h.valor);
@@ -1109,7 +1134,7 @@ function renderTotal(){
   S.itens.forEach((i,k)=>{const el=document.querySelector(`[data-sub="${k}"]`);if(el)el.textContent=i.cb?"Incluído no combo":money(itemTotal(i))});
   S.combos.forEach((c,k)=>{const el=document.querySelector(`[data-csub="${k}"]`);if(el)el.textContent=money(comboTotal(c))});
   S.hoteis.forEach((h,k)=>{const el=document.querySelector(`[data-hsub="${k}"]`);if(el)el.textContent=hotelSet(h)?money(hotelTotal(h)):"Valor a confirmar"});
-  $("#pdfBtn").disabled=!nServ();$("#saveBtn").disabled=!nServ();
+  $("#pdfBtn").disabled=!nServ();$("#saveBtn").disabled=!nServ();renderPg();
   renderOutputs();
 }
 const FIELDS=["titulo","cliente","periodo","adultos","criancas","validade","cotacao","ajuste","pagamento","obsGerais"];
@@ -1120,6 +1145,21 @@ function renderMode(){const d=isDireta();document.querySelectorAll(".agOnly").fo
 function bindValues(){renderMode();FIELDS.forEach(k=>$("#"+k).value=S[k]??"");CHECKS.forEach(k=>$("#"+k).checked=!!S[k]);
   $("#agNome").value=S.ag.nome||"";$("#agContato").value=S.ag.contato||"";$("#comFixo").value=S.com.fixo??"";
   renderSegs();renderLogo();renderAgSelect();renderNum();$("#exampleBadge").hidden=!S.exemplo}
+function renderPg(){const box=$("#pgChips");if(!box)return;
+  box.innerHTML=`<button class="chip" type="button" data-pg="0" aria-pressed="${!!S.pg.av}">À vista (Pix)</button>`+
+    Array.from({length:12},(_,i)=>i+1).map(n=>`<button class="chip" type="button" data-pg="${n}" aria-pressed="${S.pg.px.includes(n)}">${n}x</button>`).join("");
+  const g=grand(),rows=pgRows(g);
+  $("#pgPrev").innerHTML=!nServ()?"":rows.length?rows.map(r=>r.n?`${r.n}x de <b>${esc(money(r.parc))}</b> (total ${esc(money(r.tot))}, taxa ${pctFmt(taxas()[r.n-1])})`:`À vista (Pix): <b>${esc(money(r.tot))}</b>`).join("<br>"):"Nenhuma forma marcada: o PDF não mostra o quadro de pagamento."}
+$("#pgChips").addEventListener("click",e=>{const b=e.target.closest("[data-pg]");if(!b)return;const n=+b.dataset.pg;touched();
+  if(!n)S.pg.av=!S.pg.av;else S.pg.px=S.pg.px.includes(n)?S.pg.px.filter(x=>x!==n):[...S.pg.px,n];save();renderPg();renderOutputs(true)});
+document.querySelector(".pg-quick").addEventListener("click",e=>{const b=e.target.closest("[data-pgq]");if(!b)return;touched();
+  if(b.dataset.pgq==="todas")S.pg={av:true,px:[1,2,3,4,5,6,7,8,9,10,11,12]};else S.pg={av:true,px:[]};save();renderPg();renderOutputs(true)});
+function renderTaxas(){const g=$("#txGrid");if(!g)return;const t=taxas();
+  g.innerHTML=t.map((v,i)=>`<label>${i+1}x<input type="number" min="0" max="50" step="0.01" data-tx="${i}" value="${v}"></label>`).join("")}
+$("#txSave").addEventListener("click",async()=>{const st=$("#txSt");if(!LIVE.db){st.textContent="Indisponível nesta visualização.";return}
+  const t=[...document.querySelectorAll("[data-tx]")].map(x=>x.value===""?0:+x.value);
+  if(t.some(x=>!isFinite(x)||x<0||x>=50)){st.textContent="Confira os valores (entre 0 e 50%).";return}
+  st.textContent="Salvando…";try{await LIVE.db.doc("config/parcelas").set({taxas:t,em:new Date().toISOString(),por:LIVE.me||null});st.textContent="Taxas salvas. Valem para todas as propostas."}catch(e){st.textContent="Não foi possível salvar ("+(e.code||e)+")."}});
 function renderSegs(){
   $$("#moedaSeg button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===S.moeda)));
   $$("#langSeg button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===S.lang)));
@@ -1165,6 +1205,7 @@ function renderOutputs(keepTable){if(!keepTable)renderComTable();
     L.push(`• Hospedagem: ${H.n} (${H.d}) – ${hDates(h)}${n?`, ${n} noite${n>1?"s":""}`:""}`,`  ${Math.max(1,num(h.nq))}× ${hRoom(h)} · ${paxTxt(num(h.a),num(h.c))} · ${REGIME[H.reg][0]}`);
     if(hotelSet(h)){tot+=v;tcom+=cv;L.push(`  Valor: ${brl.format(v)} | Comissão ${pctFmt(p)}: ${brl.format(cv)} | Líquido: ${brl.format(v-cv)}`)}else{pend++;L.push("  Valor: a confirmar")}}
   L.push("",`Total para o cliente: ${brl.format(tot)}${pend?` (sem ${pend} hospedagem${pend>1?"ns":""} a confirmar)`:""}`,`Comissão da agência: ${brl.format(tcom)}`,`Valor líquido a pagar: ${brl.format(tot-tcom)}`);
+  {const pr=pgRows(tot);if(pr.length)L.push("","Formas de pagamento para o cliente:",...pr.map(r=>r.n?`  ${r.n}x de ${brl.format(r.parc)} no cartão (total ${brl.format(r.tot)})`:`  À vista (Pix): ${brl.format(r.tot)}`))}
   if(S.validade)L.push("",`Proposta válida até ${fmtDate(S.validade)}, sujeita à disponibilidade.`);
   L.push("O PDF para o cliente segue em anexo.");
   $("#outAgencia").value=L.join("\n");
@@ -1175,7 +1216,8 @@ function renderOutputs(keepTable){if(!keepTable)renderComTable();
   for(const cb of S.combos){const C=CB[cb.cid];W.push(`◆ ${C.t.pt}${cb.ini?` – a partir de ${fmtDM(cb.ini)}`:""} (${cbCities(C)}, hotel e transfer inclusos)`)}
   if(S.hoteis.length||S.combos.length)W.push("");
   for(const i of sorted){const t=byId[i.id];W.push(`▸ ${i.data?fmtDM(i.data)+" – ":""}${t.t.replace(/ – (Verão|Inverno)( – \w+)?$/,"")}${i.priv?" (privativo)":""}`)}
-  W.push("",`*Total: ${money(grand())}*`);if(S.validade)W.push(`Proposta válida até ${fmtDate(S.validade)}.`);W.push("Detalhes completos no PDF anexo.");
+  W.push("",`*Total: ${money(grand())}*`);
+  {const pr=pgRows(grand());if(pr.length&&!(pr.length===1&&!pr[0].n))W.push(...pr.map(r=>r.n?`💳 ${r.n}x de ${money(r.parc)}`:`💠 À vista (Pix): ${money(r.tot)}`))}if(S.validade)W.push(`Proposta válida até ${fmtDate(S.validade)}.`);W.push("Detalhes completos no PDF anexo.");
   $("#outCliente").value=W.join("\n");
 }
 
@@ -1435,7 +1477,7 @@ const LBL={
    validaTxt:(d)=>`Proposta válida até ${d}, sujeita à disponibilidade no momento da reserva.`,defTitulo:"Sua viagem pela Patagônia",locale:"pt-BR",
    hosp:"Hospedagem",suaHosp:"Sua hospedagem",hotelN:(k,n)=>`Hotel ${k} de ${n}`,checkin:"Check-in",checkout:"Check-out",noitesL:"Noites",noites:(n)=>`${n} noite${n!==1?"s":""}`,quarto:"Quarto",regime:"Regime",hospedes:"Hóspedes",servH:"No hotel",
    aPartir:(t)=>`a partir das ${t}`,ate:(t)=>`até as ${t}`,aConf:"A confirmar",servicos:"Serviços",servCount:(a,b)=>[a?`${a} passeio${a!==1?"s":""}`:"",b?`${b} hote${b!==1?"is":"l"}`:""].filter(Boolean).join(" · "),
-   pacote:"Pacote",pacInclui:"O pacote inclui",pacNaoInclui:"O pacote não inclui",em:"em",transferIO:"Transfer in/out (aeroporto – hotel)",pacPasseios:"Passeios incluídos",inclPac:"Incluído no pacote",duracao:"Duração",validadeP:"Validade",inicio:"Início",pacVer:"Os detalhes de cada passeio estão nas páginas a seguir.",notaCombo:"Pacotes: valor por pessoa em apartamento duplo, com hotel, traslados e os passeios indicados como “incluído no pacote”.",hotelTr:"hotel e traslados inclusos",notaHot:"Hospedagem: valor total da estadia, para o quarto e as datas indicados.",notaPend:"Hospedagens marcadas como “a confirmar” ainda não estão somadas ao total.",quartos:(n)=>`${n} quarto${n!==1?"s":""}`},
+   pacote:"Pacote",pacInclui:"O pacote inclui",pacNaoInclui:"O pacote não inclui",em:"em",transferIO:"Transfer in/out (aeroporto – hotel)",pacPasseios:"Passeios incluídos",inclPac:"Incluído no pacote",duracao:"Duração",validadeP:"Validade",inicio:"Início",pacVer:"Os detalhes de cada passeio estão nas páginas a seguir.",notaCombo:"Pacotes: valor por pessoa em apartamento duplo, com hotel, traslados e os passeios indicados como “incluído no pacote”.",hotelTr:"hotel e traslados inclusos",pgT:"Formas de pagamento",pgAv:"À vista (Pix)",pgCart:(n)=>`Cartão de crédito em ${n}x`,pgParc:"Parcela",pgTot:"Total",pgNota:"Cartão de crédito: Mastercard, Visa, Elo, American Express, Hipercard e Diners. Nos pagamentos no cartão, o valor já inclui a taxa da operadora.",pgDe:(n,v)=>`${n}x de ${v}`,notaHot:"Hospedagem: valor total da estadia, para o quarto e as datas indicados.",notaPend:"Hospedagens marcadas como “a confirmar” ainda não estão somadas ao total.",quartos:(n)=>`${n} quarto${n!==1?"s":""}`},
  es:{proposta:"Propuesta de viaje",num:"Propuesta n.º",prep:"Preparada para",periodo:"Período",viaj:"Viajeros",passeios:"Excursiones",valida:"Válida hasta",adultos:(n)=>`${n} adulto${n!==1?"s":""}`,criancas:(n)=>`${n} niño${n!==1?"s":""}`,e:"y",
    roteiro:"Itinerario día a día",seuRoteiro:"Su itinerario",semData:"Fecha a definir",passeioN:(k,n)=>`Excursión ${k} de ${n}`,dur:"Duración",temp:"Temporada",saida:"Salida",sugSaida:"Salida sugerida",hDef:"horario a definir",quando:"Cuándo",dif:"Dificultad",
    inclui:"Incluye",naoInclui:"No incluye",cri:"Niños",obs:"Observaciones",priv:"EXCURSIÓN PRIVADA",exclusivo:"Exclusiva para el grupo",invest:"Inversión",resumo:"Resumen de la propuesta",
@@ -1445,7 +1487,7 @@ const LBL={
    validaTxt:(d)=>`Propuesta válida hasta el ${d}, sujeta a disponibilidad al momento de la reserva.`,defTitulo:"Su viaje por la Patagonia",locale:"es-AR",
    hosp:"Alojamiento",suaHosp:"Su alojamiento",hotelN:(k,n)=>`Hotel ${k} de ${n}`,checkin:"Check-in",checkout:"Check-out",noitesL:"Noches",noites:(n)=>`${n} noche${n!==1?"s":""}`,quarto:"Habitación",regime:"Régimen",hospedes:"Huéspedes",servH:"En el hotel",
    aPartir:(t)=>`desde las ${t}`,ate:(t)=>`hasta las ${t}`,aConf:"A confirmar",servicos:"Servicios",servCount:(a,b)=>[a?`${a} excursi${a!==1?"ones":"ón"}`:"",b?`${b} hotel${b!==1?"es":""}`:""].filter(Boolean).join(" · "),
-   pacote:"Paquete",pacInclui:"El paquete incluye",pacNaoInclui:"El paquete no incluye",em:"en",transferIO:"Traslado in/out (aeropuerto – hotel)",pacPasseios:"Excursiones incluidas",inclPac:"Incluido en el paquete",duracao:"Duración",validadeP:"Vigencia",inicio:"Inicio",pacVer:"Los detalles de cada excursión están en las páginas siguientes.",notaCombo:"Paquetes: valor por persona en habitación doble, con hotel, traslados y las excursiones indicadas como “incluido en el paquete”.",hotelTr:"hotel y traslados incluidos",notaHot:"Alojamiento: valor total de la estadía, para la habitación y las fechas indicadas.",notaPend:"Los alojamientos marcados como “a confirmar” todavía no están sumados al total.",quartos:(n)=>`${n} habitaci${n!==1?"ones":"ón"}`},
+   pacote:"Paquete",pacInclui:"El paquete incluye",pacNaoInclui:"El paquete no incluye",em:"en",transferIO:"Traslado in/out (aeropuerto – hotel)",pacPasseios:"Excursiones incluidas",inclPac:"Incluido en el paquete",duracao:"Duración",validadeP:"Vigencia",inicio:"Inicio",pacVer:"Los detalles de cada excursión están en las páginas siguientes.",notaCombo:"Paquetes: valor por persona en habitación doble, con hotel, traslados y las excursiones indicadas como “incluido en el paquete”.",hotelTr:"hotel y traslados incluidos",pgT:"Formas de pago",pgAv:"Contado (Pix)",pgCart:(n)=>`Tarjeta de crédito en ${n} cuota${n>1?"s":""}`,pgParc:"Cuota",pgTot:"Total",pgNota:"Tarjeta de crédito: Mastercard, Visa, Elo, American Express, Hipercard y Diners. En los pagos con tarjeta, el valor ya incluye la tasa de la operadora.",pgDe:(n,v)=>`${n} × ${v}`,notaHot:"Alojamiento: valor total de la estadía, para la habitación y las fechas indicadas.",notaPend:"Los alojamientos marcados como “a confirmar” todavía no están sumados al total.",quartos:(n)=>`${n} habitaci${n!==1?"ones":"ón"}`},
  en:{proposta:"Travel proposal",num:"Proposal no.",prep:"Prepared for",periodo:"Dates",viaj:"Travelers",passeios:"Tours",valida:"Valid until",adultos:(n)=>`${n} adult${n!==1?"s":""}`,criancas:(n)=>`${n} child${n!==1?"ren":""}`,e:"and",
    roteiro:"Day-by-day itinerary",seuRoteiro:"Your itinerary",semData:"Date to be confirmed",passeioN:(k,n)=>`Tour ${k} of ${n}`,dur:"Duration",temp:"Season",saida:"Departure",sugSaida:"Suggested departure",hDef:"time to be confirmed",quando:"When",dif:"Difficulty",
    inclui:"Included",naoInclui:"Not included",cri:"Children",obs:"Notes",priv:"PRIVATE TOUR",exclusivo:"Exclusive for your group",invest:"Investment",resumo:"Proposal summary",
@@ -1455,7 +1497,7 @@ const LBL={
    validaTxt:(d)=>`Proposal valid until ${d}, subject to availability at the time of booking.`,defTitulo:"Your trip to Patagonia",locale:"en-US",
    hosp:"Accommodation",suaHosp:"Your accommodation",hotelN:(k,n)=>`Hotel ${k} of ${n}`,checkin:"Check-in",checkout:"Check-out",noitesL:"Nights",noites:(n)=>`${n} night${n!==1?"s":""}`,quarto:"Room",regime:"Board",hospedes:"Guests",servH:"At the hotel",
    aPartir:(t)=>`from ${t}`,ate:(t)=>`until ${t}`,aConf:"TBC",servicos:"Services",servCount:(a,b)=>[a?`${a} tour${a!==1?"s":""}`:"",b?`${b} hotel${b!==1?"s":""}`:""].filter(Boolean).join(" · "),
-   pacote:"Package",pacInclui:"The package includes",pacNaoInclui:"Not included in the package",em:"in",transferIO:"Airport – hotel transfers",pacPasseios:"Included tours",inclPac:"Included in the package",duracao:"Duration",validadeP:"Valid for",inicio:"Start",pacVer:"Details of each tour are on the following pages.",notaCombo:"Packages: price per person in a double room, including hotel, transfers and the tours marked “included in the package”.",hotelTr:"hotel and transfers included",notaHot:"Accommodation: total price for the stay, for the room and dates shown.",notaPend:"Accommodation marked “TBC” is not yet included in the total.",quartos:(n)=>`${n} room${n!==1?"s":""}`}};
+   pacote:"Package",pacInclui:"The package includes",pacNaoInclui:"Not included in the package",em:"in",transferIO:"Airport – hotel transfers",pacPasseios:"Included tours",inclPac:"Included in the package",duracao:"Duration",validadeP:"Valid for",inicio:"Start",pacVer:"Details of each tour are on the following pages.",notaCombo:"Packages: price per person in a double room, including hotel, transfers and the tours marked “included in the package”.",hotelTr:"hotel and transfers included",pgT:"Payment options",pgAv:"Upfront (Pix)",pgCart:(n)=>`Credit card in ${n} installment${n>1?"s":""}`,pgParc:"Installment",pgTot:"Total",pgNota:"Credit card: Mastercard, Visa, Elo, American Express, Hipercard and Diners. Card payments already include the card fee.",pgDe:(n,v)=>`${n} × ${v}`,notaHot:"Accommodation: total price for the stay, for the room and dates shown.",notaPend:"Accommodation marked “TBC” is not yet included in the total.",quartos:(n)=>`${n} room${n!==1?"s":""}`}};
 const CITY={es:{"Ushuaia":"Ushuaia","El Calafate":"El Calafate","El Chaltén":"El Chaltén","Buenos Aires":"Buenos Aires"},en:{}};
 let fontCache=null; const imgCache=new Map();
 function b64(buf){let s="";const b=new Uint8Array(buf);for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(s)}
@@ -1867,6 +1909,15 @@ async function buildPdf(onProgress){
   if(S.combos.length)notes.push(Lb.notaCombo);if(S.hoteis.length)notes.push(Lb.notaHot);if(S.hoteis.some(h=>!hotelSet(h)))notes.push(Lb.notaPend);
   if(S.moeda!=="BRL"&&c)notes.push(Lb.cot(String(c).replace(".",",")));
   notes.forEach(n=>{const ls=doc.splitTextToSize(n,W-2*M-4);doc.text(ls,M+2,y);y+=4.2*ls.length});y+=4;
+  {const pr=pgRows(grand());if(pr.length){ensure(14+pr.length*7);heading(Lb.pgT);
+    const vc2=vals(0).length,cw=vc2===2?34:38,xT=W-M,xP=xT-cw*vc2-10;
+    doc.setFillColor(...C.soft);doc.rect(M,y,W-2*M,7.5,"F");font("Pop","medium",7.5,C.ink);
+    doc.text(Lb.pgT.toUpperCase(),M+2,y+5,{charSpace:0.4});doc.text(Lb.pgParc.toUpperCase(),xP,y+5,{align:"right",charSpace:0.4});doc.text(Lb.pgTot.toUpperCase(),xT-2,y+5,{align:"right",charSpace:0.4});y+=10;
+    for(const r of pr){ensure(7);font("Pop",r.n?"normal":"medium",9.2,C.ink);doc.text(r.n?Lb.pgCart(r.n):Lb.pgAv,M+2,y+2.6);
+      font("Pop","light",9,C.ink);doc.text(r.n?Lb.pgDe(r.n,vals(r.parc)[0]):"—",xP,y+2.6,{align:"right"});
+      font("Pop","medium",9.2,C.ink);doc.text(vals(r.tot).join("  ·  "),xT-2,y+2.6,{align:"right"});
+      y+=6.4;doc.setDrawColor(...C.rule);doc.line(M,y-1.6,W-M,y-1.6)}
+    if(pr.some(r=>r.n)){y+=2;font("Pop","light",8,C.muted);const ls=doc.splitTextToSize(Lb.pgNota,W-2*M-4);ensure(ls.length*4);doc.text(ls,M+2,y+2);y+=4.2*ls.length+2}}}
   if(clean(X.pagamento)){heading(Lb.pag);para(X.pagamento,{size:9.2})}
   if(clean(X.obsGerais)){heading(Lb.obsG);para(X.obsGerais,{size:9.2})}
   if(S.incluirCanc&&clean(X.canc)){heading(Lb.canc);para(X.canc,{size:8.6,col:C.muted})}
@@ -1976,7 +2027,7 @@ $("#pdfBtn").addEventListener("click",async()=>{
 
 /* init */
 $("#catalogInfo").textContent=`${CATALOG.length} passeios`;
-renderChips();bindValues();renderCatalog();renderItems();renderTotal();renderTarifas();renderHist();renderAgList();
+renderChips();bindValues();renderCatalog();renderItems();renderTotal();renderTarifas();renderTaxas();renderHist();renderAgList();
 const h=(location.hash||"").slice(1);if(["historico","agencias","tarifas"].includes(h))showTab(h);
 window.__startLive=initLive;
 })();
