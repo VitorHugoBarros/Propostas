@@ -85,15 +85,18 @@ nav.tabs .cnt{font-size:11.5px;background:var(--surface-2);border:1px solid var(
 .cb-inc .d{display:inline-block;min-width:96px;color:var(--muted);font-variant-numeric:tabular-nums}
 #catalog .rt{padding:14px 16px 18px;display:grid;gap:14px;min-width:0}
 .rt h3{margin:0;font-size:15px}
-.rt .rt-city{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:end}
+.rt .rt-city{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.3fr) minmax(0,1.3fr) auto;gap:8px;align-items:end}
 .rt label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
 .rt input:not([type=checkbox]),.rt select{width:100%;min-width:0;box-sizing:border-box;font:inherit;font-size:14px;padding:7px 9px;border:1px solid var(--rule);border-radius:8px;background:var(--surface);color:var(--ink)}
+.rt .rt-dt{display:flex;gap:4px;min-width:0}
+.rt .rt-dt input[type=date]{flex:1.4}
+.rt .rt-dt input[type=time]{flex:1}
 .rt .rt-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .rt .chk{flex-direction:row;align-items:center;gap:8px;font-size:13px;color:var(--ink)}
 .rt-out{font-size:13px;line-height:1.5}
 .rt-out ul{margin:6px 0;padding-left:18px}
 .rt-out .skip{color:var(--muted)}
-@media (max-width:640px){.rt .rt-city{grid-template-columns:1fr 1fr}.rt .rt-row{grid-template-columns:1fr 1fr}}
+@media (max-width:640px){.rt .rt-city{grid-template-columns:1fr}.rt .rt-row{grid-template-columns:1fr 1fr}}
 .btn:disabled{opacity:.55;cursor:default}
 .sec{padding:16px;border-bottom:1px solid var(--rule);display:flex;flex-direction:column;gap:12px}
 .sec>h3{font-family:var(--body);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
@@ -547,6 +550,8 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
           <div class="f"><label for="adultos">Adultos</label><input id="adultos" type="number" min="0" step="1"></div>
           <div class="f"><label for="criancas">Crianças</label><input id="criancas" type="number" min="0" step="1"></div>
           <div class="f"><label for="validade">Proposta válida até</label><input id="validade" type="date"></div>
+          <div class="f"><label for="vooIn">Chegada do voo (data e hora)</label><input id="vooIn" type="datetime-local"></div>
+          <div class="f"><label for="vooOut">Saída do voo (data e hora)</label><input id="vooOut" type="datetime-local"></div>
         </div>
         <p class="hint">Adultos e crianças são o padrão de cada passeio adicionado. Dá para mudar passeio a passeio abaixo.</p>
       </div>
@@ -780,7 +785,7 @@ function cbInVal(cb){if(!cb.ini)return true;const [y,m,d]=cb.ini.split("-").map(
 function newHotel(hid,s){return{hid,ci:"",co:"",q:0,nq:1,a:num(s.adultos),c:num(s.criancas),valor:"",com:"",edit:null}}
 function newItem(id,s){const t=byId[id];return{id,a:num(s.adultos),c:num(s.criancas),data:"",pa:t.pa,pc:t.pc>0?t.pc:t.pa,priv:false,pp:"",com:"",edit:null}}
 function baseState(){return{exemplo:false,num:null,docId:null,status:"Rascunho",titulo:"",cliente:"",periodo:"",adultos:2,criancas:0,validade:isoPlus(15),moeda:"BRL",lang:"pt",cotacao:"",ajuste:"",
-  roteiroCompleto:false,incluirCanc:true,mostrarUnit:true,pagamento:"",obsGerais:"",com:{modo:"fixo",fixo:""},ag:{id:null,nome:"",contato:"",logo:""},itens:[],hoteis:[],combos:[],pg:{av:true,px:[]}}}
+  roteiroCompleto:false,incluirCanc:true,mostrarUnit:true,pagamento:"",obsGerais:"",com:{modo:"fixo",fixo:""},ag:{id:null,nome:"",contato:"",logo:""},itens:[],hoteis:[],combos:[],pg:{av:true,px:[]},vooIn:"",vooOut:""}}
 function exampleState(){
   const s=Object.assign(baseState(),{exemplo:true,titulo:"Patagônia: Ushuaia e El Calafate",cliente:"Casal Ferreira",periodo:"14 a 20 de dezembro de 2026",
     pagamento:"30% no ato da reserva e saldo até 30 dias antes do embarque.",obsGerais:"Valores sujeitos à disponibilidade no momento da reserva.",
@@ -877,28 +882,95 @@ function renderComboCatalog(){
       <button class="btn ${on?"added":""}" type="button" data-addc="${esc(c.id)}">${on?"Adicionado":"Adicionar"}</button></div>`}
   $("#catalog").innerHTML=html||`<div class="empty">Nenhum combo encontrado com esses filtros.</div>`;
 }
-/* ---------- roteiro personalizado (clássicos por cidade) ---------- */
-// cada posição = alternativas (a primeira que opera na data entra); cada alternativa = passeios do mesmo dia
-const CLASSICOS={
-  "Ushuaia":[[[11479,33017],[32969,32967]],[[11618],[32961]],[[717296],[32959]],[[33005],[11971]],[[717499],[374534]],[[334454],[18681]],[[717215]],[[32997]]],
-  "El Calafate":[[[12800]],[[12375]],[[13030]],[[32896]],[[12761]],[[716843]],[[32900]],[[11332]]],
-  "Buenos Aires":[[[70764,68205]],[[578424]],[[717670]],[[32887]]]};
-const RT_CITIES=Object.keys(CLASSICOS);
+/* ---------- regras de roteiro (ensinadas pelo Vitor em 01/11/2026) ---------- */
+// Período de cada passeio: M manhã · T tarde · N noite · MT manhã ou tarde · L manhã ou tarde, mas longo (de manhã ocupa até ~14h e só sobra a noite)
+// D dia (ocupa manhã e tarde; a noite fica livre) · TN tarde + noite · F dia inteiro pesado (trekking / full day: nada mais no dia)
+const RULE={
+  // Ushuaia
+  11479:"M",32969:"M",33017:"M",33015:"M",32967:"M",32965:"M",11618:"MT",32961:"MT",33038:"MT",
+  33005:"L",11971:"L",719376:"L",576857:"L",32997:"L",719160:"M",
+  334454:"D",18681:"D",18035:"D",717787:"D",719311:"D",719555:"D",374534:"D",499387:"D",33007:"D",718893:"D",
+  717499:"N",32973:"N",717588:"N",33001:"TN",
+  717296:"F",717346:"F",717365:"F",32959:"F",717201:"F",33011:"F",14464:"F",14454:"F",717215:"F",
+  // El Calafate
+  12800:"D",11332:"M",12761:"MT",505010:"MT",718997:"MT",718982:"MT",32950:"MT",32940:"MT",32723:"MT",
+  716843:"D",32875:"D",717515:"D",32953:"D",32926:"D",32902:"T",32937:"N",32934:"TN",
+  12375:"F",18628:"F",12745:"F",12456:"F",13030:"F",18134:"F",32896:"F",32913:"F",32900:"F",717758:"F",32917:"F",32882:"F",32880:"F",32878:"F",
+  // Buenos Aires
+  70764:"M",68205:"N",578843:"N",578169:"N",68218:"N",578424:"D",717670:"D",717687:"D",32887:"D",578868:"D",578382:"D",578884:"M"};
+// complementos que vão no mesmo horário do passeio principal (opcionais)
+const ADDON={11479:[33017],32969:[32967],12800:[11332]};
+const ADDON_OF={33017:11479,33015:11479,32967:32969,32965:32969,11332:12800};
+// grupos: só um passeio de cada grupo na mesma proposta
+const GRUPOS=[
+  {ids:[334454,18681,33005,11971,719376],why:"4x4 e Passeio dos Lagos vão praticamente aos mesmos lugares"},
+  {ids:[11618,32961,32997,18035,717787,576857],why:"a Navegação Pinguinera já inclui o Canal Beagle (e as outras navegações repetem o mesmo trajeto)"},
+  {ids:[32997,33001,18035,576857,717787],why:"são passeios de pinguins: só um por proposta"},
+  {ids:[717296,717346,717365,32959],why:"é a mesma trilha da Laguna Esmeralda"},
+  {ids:[717499,719160,32973],why:"seriam huskies duas vezes"},
+  {ids:[719311,719555,717215],why:"o Mega Tour já vai ao Glaciar Martial"},
+  {ids:[11479,32969,719311,719555],why:"o Mega Tour já inclui o Parque Nacional"},
+  {ids:[33015,33017,32965,32967],why:"é o mesmo Trem do Fim do Mundo"},
+  {ids:[374534,499387],why:"são passeios do Parque Austral com o mesmo conteúdo (o Premier Pass inclui tudo)"},
+  {ids:[33007,718893],why:"é a mesma aula de esqui"},
+  {ids:[12800,32896,32913],why:"Mini trekking e Big Ice já incluem as passarelas do Perito Moreno"},
+  {ids:[12375,18628,12745,12456],why:"Todos os Glaciares e Glaciares Gourmet são praticamente o mesmo passeio de barco"},
+  {ids:[716843,717758],why:"é a mesma estância (Nibepo Aike)"},
+  {ids:[32902,32937,32934],why:"é a mesma estância (25 de Mayo)"},
+  {ids:[32917,32882,32880,32878],why:"é a mesma estância (Cristina)"},
+  {ids:[718997,718982],why:"é o mesmo Cerro Huyliche"},
+  {ids:[717515,32953],why:"é o mesmo Mayo Spirit Trek"}];
+// combinação desaconselhada (aviso, sem bloquear)
+const SOFT=[{a:[12745,12456],b:[12800,32896,32913],why:"o Glaciares Gourmet também passa pelo Perito Moreno"}];
+const grpConf=(id,ids)=>{for(const g of GRUPOS)if(g.ids.includes(id)){const o=ids.find(x=>x!==id&&g.ids.includes(x));if(o)return{o,why:g.why}}return null};
+const slotOf=id=>RULE[id]||"MT";
+const isTrf=t=>/^Transfer (In|Out)/i.test(t.t);
+const MAX_DIA={"El Calafate":1};
+// avisos da proposta (montada à mão ou pelo gerador)
+function ruleAlerts(k){const it=S.itens[k];if(!it)return[];const t=byId[it.id];if(isTrf(t))return[];const out=[];
+  const ids=S.itens.filter((x,j)=>j!==k).map(x=>x.id);
+  const c=grpConf(it.id,ids);if(c)out.push({k:"warn",msg:`<b>Não vender junto com ${esc(byId[c.o].t.split(" – ")[0])}:</b> ${esc(c.why)}.`});
+  for(const s of SOFT){const mine=s.a.includes(it.id)?s.b:s.b.includes(it.id)?s.a:null;if(!mine)continue;const o=ids.find(x=>mine.includes(x));if(o&&s.a.includes(it.id))out.push({k:"info",msg:`<b>Atenção:</b> ${esc(s.why)} (já tem ${esc(byId[o].t.split(" – ")[0])}).`})}
+  if(it.data){const same=S.itens.filter((x,j)=>j!==k&&x.data===it.data&&!isTrf(byId[x.id])&&ADDON_OF[x.id]!==it.id&&ADDON_OF[it.id]!==x.id);
+    if(same.length){const sl=slotOf(it.id);
+      if(sl==="F")out.push({k:"info",msg:`<b>Dia cheio:</b> este passeio ocupa o dia inteiro (trekking ou full day). Não recomendamos outro passeio no mesmo dia (${esc(byId[same[0].id].t.split(" – ")[0])}).`});
+      else if((MAX_DIA[t.d]||9)<2)out.push({k:"info",msg:`<b>Mesmo dia:</b> em ${esc(t.d)} as distâncias são grandes e não é comum fazer dois passeios no mesmo dia.`})}}
+  return out}
+function itemAlerts(k){const i=S.itens[k];const a=[...(checkOp(byId[i.id],i.data)||[]),...ruleAlerts(k)];return a.length?a:null}
+
+/* ---------- roteiro personalizado ---------- */
+// ordem de prioridade dos clássicos por cidade (a temporada e os dias de saída filtram o que entra)
+const PRIO={
+  "Ushuaia":[11479,32969,11618,32961,717296,32959,33005,11971,717499,32973,374534,717588,334454,18681,717215,719160,32997,576857],
+  "El Calafate":[12800,12375,13030,12761,716843,32900,717515,32896],
+  "Buenos Aires":[70764,68205,578424,717670,32887]};
+const RT_CITIES=Object.keys(PRIO);
 const AGE_MIN={32896:8,32900:6,33005:2,11971:2,719376:2,32940:16,14464:15,33011:15,718997:12,716843:3,12761:0};
 const AGE_MAX={32896:65};
 const ageMin=t=>t.id in AGE_MIN?AGE_MIN[t.id]:((/menores de (\d+)/i.exec(t.cri||"")||[])[1]|0);
+const ageOk=(t,ages)=>!ages.some(x=>x<ageMin(t)||(AGE_MAX[t.id]&&x>AGE_MAX[t.id]));
 const TRF={"Ushuaia":[32982,32979],"El Calafate":[32886,32884]};
-let RT={cid:[{d:"Ushuaia",ch:"",sa:""}],a:2,c:0,ages:"",trf:true,subst:false,out:""};
+let RT={cid:[{d:"Ushuaia",ch:"",hc:"",sa:"",hs:""}],a:2,c:0,ages:"",trf:true,subst:false,out:""};
+// encaixa um passeio nos períodos livres do dia; devolve os períodos usados ou null
+function fitSlot(sl,free,nPlaced){const f=p=>free.has(p);
+  if(sl==="F")return nPlaced===0&&f("M")&&f("T")&&f("N")?["M","T","N"]:null;
+  if(sl==="D")return f("M")&&f("T")?["M","T"]:null;
+  if(sl==="TN")return f("T")&&f("N")?["T","N"]:null;
+  if(sl==="L")return f("M")&&f("T")?["M","T"]:f("T")?["T"]:null;
+  if(sl==="MT")return f("M")?["M"]:f("T")?["T"]:null;
+  return f(sl)?[sl]:null}
 function renderRoteiro(){
   $("#catCount").textContent="Clássicos por cidade";
+  if(RT.cid.length===1&&!RT.cid[0].ch&&S.vooIn){RT.cid[0].ch=S.vooIn.slice(0,10);RT.cid[0].hc=S.vooIn.slice(11,16)}
+  if(!RT.cid[RT.cid.length-1].sa&&S.vooOut){const l=RT.cid[RT.cid.length-1];l.sa=S.vooOut.slice(0,10);l.hs=S.vooOut.slice(11,16)}
   const cityRow=(r,k)=>`<div class="rt-city" data-rc="${k}">
       <label>Cidade<select data-rf="d">${RT_CITIES.map(c=>`<option${c===r.d?" selected":""}>${c}</option>`).join("")}</select></label>
-      <label>Chegada<input type="date" data-rf="ch" value="${esc(r.ch)}"></label>
-      <label>Saída<input type="date" data-rf="sa" value="${esc(r.sa)}"></label>
+      <label>Chegada<span class="rt-dt"><input type="date" data-rf="ch" value="${esc(r.ch)}"><input type="time" data-rf="hc" value="${esc(r.hc||"")}" aria-label="Horário de chegada"></span></label>
+      <label>Saída<span class="rt-dt"><input type="date" data-rf="sa" value="${esc(r.sa)}"><input type="time" data-rf="hs" value="${esc(r.hs||"")}" aria-label="Horário de saída"></span></label>
       ${RT.cid.length>1?`<button class="btn sm ghost" type="button" data-rdel aria-label="Remover cidade">✕</button>`:"<span></span>"}</div>`;
   $("#catalog").innerHTML=`<div class="rt">
-    <p class="hint" style="margin:0">Coloque as cidades com as datas de chegada e saída e quantas pessoas vão. O sistema monta o roteiro com os passeios clássicos de cada cidade, um por dia, conferindo a temporada, os dias de saída e a idade das crianças. Depois é só ajustar na proposta.</p>
-    <div><h3>Cidades</h3><div id="rtCities" style="display:grid;gap:8px;margin-top:8px">${RT.cid.map(cityRow).join("")}</div>
+    <p class="hint" style="margin:0">Coloque as cidades com a data (e, se souber, o horário do voo) de chegada e saída, e quantas pessoas vão. O sistema monta o roteiro com os clássicos de cada cidade: junta o que combina no mesmo dia (por exemplo, Parque + Trem de manhã e Navegação à tarde), deixa o trekking sozinho no dia, não junta passeios repetidos e confere temporada, dias de saída e idade das crianças. Dia de chegada e de saída ficam livres (se o voo chegar até as 9h, entra um passeio noturno).</p>
+    <div><h3>Cidades</h3><div id="rtCities" style="display:grid;gap:10px;margin-top:8px">${RT.cid.map(cityRow).join("")}</div>
       <button class="btn sm" type="button" id="rtAdd" style="margin-top:8px">+ Adicionar cidade</button></div>
     <div class="rt-row">
       <label>Adultos<input type="number" min="1" id="rtA" value="${esc(RT.a)}"></label>
@@ -911,7 +983,7 @@ function renderRoteiro(){
     <div class="rt-out" id="rtOut">${RT.out}</div></div>`;
 }
 function rtRead(){const box=$("#catalog");if(!box.querySelector(".rt"))return;
-  RT.cid=[...box.querySelectorAll("[data-rc]")].map(r=>({d:r.querySelector('[data-rf="d"]').value,ch:r.querySelector('[data-rf="ch"]').value,sa:r.querySelector('[data-rf="sa"]').value}));
+  RT.cid=[...box.querySelectorAll("[data-rc]")].map(r=>{const v=f=>r.querySelector(`[data-rf="${f}"]`).value;return{d:v("d"),ch:v("ch"),hc:v("hc"),sa:v("sa"),hs:v("hs")}});
   RT.a=$("#rtA").value;RT.c=$("#rtC").value;RT.ages=$("#rtAges").value;RT.trf=$("#rtTrf").checked;RT.subst=$("#rtSub").checked}
 function montarRoteiro(){rtRead();
   const a=Math.max(1,num(RT.a)),c=Math.max(0,num(RT.c));
@@ -919,42 +991,50 @@ function montarRoteiro(){rtRead();
   const cities=RT.cid.filter(r=>r.ch);
   if(!cities.length){RT.out=`<div class="alert warn"><b>Coloque a data de chegada</b> de pelo menos uma cidade.</div>`;renderRoteiro();return}
   if(c&&ages.length<c){RT.out=`<div class="alert warn"><b>Coloque a idade de cada criança</b> (separe por vírgula). Ela decide quais passeios podem entrar.</div>`;renderRoteiro();return}
-  const add=[],skip=[],busy=new Set(S.itens.filter(i=>i.cb).map(i=>i.data).filter(Boolean));
-  const haveIds=new Set(RT.subst?S.itens.filter(i=>i.cb).map(i=>i.id):S.itens.map(i=>i.id));
+  const keep=RT.subst?S.itens.filter(i=>i.cb):S.itens;
+  const chosen=keep.map(i=>i.id);const add=[],skip=[];
+  const dayUse={};keep.forEach(i=>{if(i.data&&!isTrf(byId[i.id]))dayUse[i.data]=(dayUse[i.data]||0)+1});
   for(const r of cities){const sa=r.sa&&r.sa>r.ch?r.sa:isoAdd(r.ch,3);
-    const full=[];for(let d=isoAdd(r.ch,1);d<sa;d=isoAdd(d,1))full.push(d);if(!full.length)full.push(r.ch);
-    const free=full.filter(d=>!busy.has(d));
-    if(RT.trf&&TRF[r.d]){const [ti,to]=TRF[r.d];if(!haveIds.has(ti))add.push({id:ti,data:r.ch});if(r.sa&&!haveIds.has(to))add.push({id:to,data:sa})}
-    for(const slot of CLASSICOS[r.d]||[]){
-      let done=false,why="";
-      for(const alt of slot){const ts=alt.map(id=>byId[id]).filter(Boolean);if(!ts.length)continue;
-        if(ts.some(t=>haveIds.has(t.id))){done=true;why="";break}
-        const badAge=ts.find(t=>ages.some(x=>x<ageMin(t)||(AGE_MAX[t.id]&&x>AGE_MAX[t.id])));
-        if(badAge){why="idade";continue}
-        const d=free.find(x=>ts.every(t=>okOn(t,x)));
-        if(!d){if(!why)why=free.length?"não opera nos dias livres":"sem dia livre";continue}
-        ts.forEach(t=>{add.push({id:t.id,data:d});haveIds.add(t.id)});free.splice(free.indexOf(d),1);done=true;break}
-      if(!done&&why){const t=byId[slot[0][0]];if(t)skip.push({t,d:r.d,why})}
-    }
+    if(RT.trf&&TRF[r.d]){const [ti,to]=TRF[r.d];if(!chosen.includes(ti)){add.push({id:ti,data:r.ch});chosen.push(ti)}if(r.sa&&!chosen.includes(to)){add.push({id:to,data:sa});chosen.push(to)}}
+    const days=[];if(r.hc&&r.hc<="09:00")days.push({d:r.ch,free:new Set(["N"])});
+    for(let d=isoAdd(r.ch,1);d<sa;d=isoAdd(d,1))days.push({d,free:new Set(dayUse[d]?[]:["M","T","N"])});
+    const max=MAX_DIA[r.d]||2;const cand=(PRIO[r.d]||[]).map(id=>byId[id]).filter(Boolean);const noDay=new Set(),tooYoung=new Set();
+    for(const day of days){let n=0;
+      for(const t of cand){if(n>=max||!day.free.size)break;
+        if(chosen.includes(t.id))continue;
+        if(!ageOk(t,ages)){tooYoung.add(t.id);continue}
+        if(grpConf(t.id,chosen))continue;
+        if(!okOn(t,day.d))continue;
+        const use=fitSlot(slotOf(t.id),day.free,n);if(!use){noDay.add(t.id);continue}
+        use.forEach(p=>day.free.delete(p));if(slotOf(t.id)==="F")day.free.clear();
+        add.push({id:t.id,data:day.d,per:slotOf(t.id)==="F"?"dia inteiro":slotOf(t.id)==="L"&&use.length>1?"manhã, volta ~14h":use.length>1?(use.includes("N")?"tarde e noite":"dia"):{M:"manhã",T:"tarde",N:"noite"}[use[0]]});chosen.push(t.id);n++;noDay.delete(t.id);
+        for(const ad of ADDON[t.id]||[]){const x=byId[ad];if(x&&!chosen.includes(ad)&&ageOk(x,ages)&&okOn(x,day.d)&&!grpConf(ad,chosen)){add.push({id:ad,data:day.d});chosen.push(ad)}}}}
+    for(const id of tooYoung)if(!chosen.includes(id))skip.push({t:byId[id],why:"idade"});
+    for(const id of noDay)if(!chosen.includes(id)&&!grpConf(id,chosen))skip.push({t:byId[id],why:"sem dia livre"});
   }
   if(RT.subst)S.itens=S.itens.filter(i=>i.cb);
   for(const x of add){const it=newItem(x.id,S);it.a=a;it.c=c;it.data=x.data;S.itens.push(it)}
+  S.itens.sort((p,q)=>(p.data||"9999").localeCompare(q.data||"9999")||(isTrf(byId[q.id])-isTrf(byId[p.id]))||(PER_ORD[slotOf(p.id)]-PER_ORD[slotOf(q.id)]));
   S.adultos=a;S.criancas=c;
+  const f0=cities[0],fl=cities[cities.length-1];
+  if(!S.vooIn&&f0.hc)S.vooIn=`${f0.ch}T${f0.hc}`;if(!S.vooOut&&fl.sa&&fl.hs)S.vooOut=`${fl.sa}T${fl.hs}`;
   const cbB=S.combos.flatMap(cb=>cbBlocks(cb).filter(x=>x.ci));
   const ini=[...cities.map(r=>r.ch),...cbB.map(x=>x.ci)].sort()[0],fim=[...cities.map(r=>r.sa&&r.sa>r.ch?r.sa:isoAdd(r.ch,3)),...cbB.map(x=>x.co)].sort().slice(-1)[0];
   if(!S.periodo)S.periodo=`${fmtDM(ini)} a ${fmtDate(fim)}`;
   const cn=[...new Set([...cbB.sort((p,q)=>p.ci.localeCompare(q.ci)).map(x=>x.d),...cities.slice().sort((p,q)=>p.ch.localeCompare(q.ch)).map(r=>r.d)])];
   if(!S.titulo)S.titulo="Roteiro "+(cn.length>1?cn.slice(0,-1).join(", ")+" e "+cn.slice(-1):cn[0]);
   touched();save();bindValues();renderItems();renderTotal();
-  const byDay=add.slice().sort((p,q)=>p.data.localeCompare(q.data));
+  const byDay={},perOf={};add.forEach(x=>{(byDay[x.data]=byDay[x.data]||[]).push(x.id);if(x.per)perOf[x.id]=x.per});
+  const PER={M:"manhã",T:"tarde",N:"noite",MT:"",L:"",D:"dia",TN:"tarde/noite",F:"dia inteiro"};
   RT.out=`<div class="alert ok"><b>${add.length} passeio${add.length!==1?"s":""} adicionado${add.length!==1?"s":""} na proposta.</b> Confira as datas e os valores ao lado.</div>
-    <ul>${byDay.map(x=>`<li><b>${fmtDM(x.data)}</b> (${wdName(x.data)}) · ${esc(byId[x.id].t)}</li>`).join("")}</ul>
-    ${(()=>{const ag=skip.filter(x=>/idade/.test(x.why)),nd=skip.filter(x=>!/idade/.test(x.why));
+    <ul>${Object.keys(byDay).sort().map(d=>`<li><b>${fmtDM(d)}</b> (${wdName(d)}) · ${byDay[d].sort((p,q)=>(isTrf(byId[q])-isTrf(byId[p]))||(ADDON_OF[p]&&ADDON_OF[p]===q?1:ADDON_OF[q]&&ADDON_OF[q]===p?-1:0)||PER_ORD[slotOf(p)]-PER_ORD[slotOf(q)]).map(id=>esc(byId[id].t.split(" – ")[0])+(perOf[id]?` <span class="meta">(${perOf[id]})</span>`:"")).join(" + ")}</li>`).join("")}</ul>
+    ${(()=>{const ag=skip.filter(x=>x.why==="idade"),nd=skip.filter(x=>x.why!=="idade");
       return (ag.length?`<div class="skip"><b>Não indicados pela idade das crianças:</b><ul>${ag.map(x=>`<li>${esc(x.t.t)}</li>`).join("")}</ul></div>`:"")+
-        (nd.length?`<div class="skip"><b>Outros clássicos que não couberam nos dias</b> (dá para trocar ou adicionar pelo catálogo):<ul>${nd.map(x=>`<li>${esc(x.t.t)}${x.why!=="sem dia livre"?" — "+esc(x.why):""}</li>`).join("")}</ul></div>`:"")})()}`;
+        (nd.length?`<div class="skip"><b>Outros clássicos que não couberam nos dias</b> (dá para trocar ou adicionar pelo catálogo):<ul>${nd.map(x=>`<li>${esc(x.t.t)}</li>`).join("")}</ul></div>`:"")})()}`;
   renderRoteiro();
 }
-$("#catalog").addEventListener("click",e=>{if(e.target.closest("#rtAdd")){rtRead();const last=RT.cid[RT.cid.length-1];RT.cid.push({d:RT_CITIES.find(c=>!RT.cid.some(r=>r.d===c))||"El Calafate",ch:last.sa||"",sa:""});renderRoteiro();return}
+const PER_ORD={M:1,MT:2,L:2,D:2,F:2,T:3,TN:4,N:5};
+$("#catalog").addEventListener("click",e=>{if(e.target.closest("#rtAdd")){rtRead();const last=RT.cid[RT.cid.length-1];RT.cid.push({d:RT_CITIES.find(c=>!RT.cid.some(r=>r.d===c))||"El Calafate",ch:last.sa||"",hc:last.hs||"",sa:"",hs:""});renderRoteiro();return}
   const del=e.target.closest("[data-rdel]");if(del){rtRead();RT.cid.splice(+del.closest("[data-rc]").dataset.rc,1);renderRoteiro();return}
   if(e.target.closest("#rtGo"))montarRoteiro()});
 $("#catalog").addEventListener("change",e=>{if(e.target.closest(".rt"))rtRead()});
@@ -1037,7 +1117,7 @@ $("#cmbItems").addEventListener("input",e=>{const el=e.target.closest("[data-cfl
 function renderItems(){
   renderHotels();renderCombos();const box=$("#items");
   if(!S.itens.length){box.innerHTML=`<div class="empty">Nenhum passeio ainda. Use <b>Adicionar</b> no catálogo.</div>`;renderSuggest();return}
-  box.innerHTML=S.itens.map((i,k)=>{const t=byId[i.id];const e=i.edit||{};const al=checkOp(t,i.data);
+  box.innerHTML=S.itens.map((i,k)=>{const t=byId[i.id];const e=i.edit||{};const al=itemAlerts(k);
     if(i.cb){const cb=S.combos.find(c=>c.uid===i.cb);return `<div class="item incb" data-k="${k}">
       <div class="item-h"><span class="num">${k+1}</span><div style="min-width:0"><h4>${esc(t.t)} <span class="tag-cb">No combo</span></h4><div class="meta">${esc(t.d)}${t.dur?" · "+esc(t.dur):""} · ${esc(cb?CB[cb.cid].t.pt:"")}</div></div>
         <div class="item-tools"><button class="icon" type="button" data-act="up" aria-label="Subir">↑</button><button class="icon" type="button" data-act="down" aria-label="Descer">↓</button></div></div>
@@ -1115,7 +1195,7 @@ const hotelInput=e=>{const it=e.target.closest(".item.hotel");if(!it)return;cons
   if(e.target.dataset.hedit){h.edit=h.edit||{};h.edit[e.target.dataset.hedit]=e.target.value}
   save()};
 $("#hotItems").addEventListener("input",hotelInput);
-function refreshAlert(k){const i=S.itens[k];const box=document.querySelector(`[data-al="${k}"]`);if(!box)return;const al=checkOp(byId[i.id],i.data);box.innerHTML=al?al.map(x=>`<div class="alert ${x.k}">${x.msg}</div>`).join(""):""}
+function refreshAlert(){S.itens.forEach((i,k)=>{const box=document.querySelector(`[data-al="${k}"]`);if(!box)return;const al=itemAlerts(k);box.innerHTML=al?al.map(x=>`<div class="alert ${x.k}">${x.msg}</div>`).join(""):""})}
 const destOf=t=>/chalt/i.test(t.t)?"El Chaltén":t.d;
 function renderSuggest(){
   const box=$("#suggest");const ds=[...new Set(S.itens.map(i=>byId[i.id].d))];const have=new Set(S.itens.map(i=>i.id));const rows=[];
@@ -1137,7 +1217,7 @@ function renderTotal(){
   $("#pdfBtn").disabled=!nServ();$("#saveBtn").disabled=!nServ();renderPg();
   renderOutputs();
 }
-const FIELDS=["titulo","cliente","periodo","adultos","criancas","validade","cotacao","ajuste","pagamento","obsGerais"];
+const FIELDS=["titulo","cliente","periodo","adultos","criancas","validade","vooIn","vooOut","cotacao","ajuste","pagamento","obsGerais"];
 const CHECKS=["roteiroCompleto","incluirCanc","mostrarUnit"];
 function renderMode(){const d=isDireta();document.querySelectorAll(".agOnly").forEach(el=>el.hidden=d);document.querySelectorAll(".agOnlyNote").forEach(el=>el.hidden=!d);
   $("#comSecT").textContent=d?"Venda direta (sem comissão)":"Comissão da agência (não vai no PDF)";
@@ -1477,7 +1557,7 @@ const LBL={
    validaTxt:(d)=>`Proposta válida até ${d}, sujeita à disponibilidade no momento da reserva.`,defTitulo:"Sua viagem pela Patagônia",locale:"pt-BR",
    hosp:"Hospedagem",suaHosp:"Sua hospedagem",hotelN:(k,n)=>`Hotel ${k} de ${n}`,checkin:"Check-in",checkout:"Check-out",noitesL:"Noites",noites:(n)=>`${n} noite${n!==1?"s":""}`,quarto:"Quarto",regime:"Regime",hospedes:"Hóspedes",servH:"No hotel",
    aPartir:(t)=>`a partir das ${t}`,ate:(t)=>`até as ${t}`,aConf:"A confirmar",servicos:"Serviços",servCount:(a,b)=>[a?`${a} passeio${a!==1?"s":""}`:"",b?`${b} hote${b!==1?"is":"l"}`:""].filter(Boolean).join(" · "),
-   pacote:"Pacote",pacInclui:"O pacote inclui",pacNaoInclui:"O pacote não inclui",em:"em",transferIO:"Transfer in/out (aeroporto – hotel)",pacPasseios:"Passeios incluídos",inclPac:"Incluído no pacote",duracao:"Duração",validadeP:"Validade",inicio:"Início",pacVer:"Os detalhes de cada passeio estão nas páginas a seguir.",notaCombo:"Pacotes: valor por pessoa em apartamento duplo, com hotel, traslados e os passeios indicados como “incluído no pacote”.",hotelTr:"hotel e traslados inclusos",pgT:"Formas de pagamento",pgAv:"À vista (Pix)",pgCart:(n)=>`Cartão de crédito em ${n}x`,pgParc:"Parcela",pgTot:"Total",pgNota:"Cartão de crédito: Mastercard, Visa, Elo, American Express, Hipercard e Diners. Nos pagamentos no cartão, o valor já inclui a taxa da operadora.",pgDe:(n,v)=>`${n}x de ${v}`,notaHot:"Hospedagem: valor total da estadia, para o quarto e as datas indicados.",notaPend:"Hospedagens marcadas como “a confirmar” ainda não estão somadas ao total.",quartos:(n)=>`${n} quarto${n!==1?"s":""}`},
+   pacote:"Pacote",pacInclui:"O pacote inclui",pacNaoInclui:"O pacote não inclui",em:"em",transferIO:"Transfer in/out (aeroporto – hotel)",pacPasseios:"Passeios incluídos",inclPac:"Incluído no pacote",duracao:"Duração",validadeP:"Validade",inicio:"Início",pacVer:"Os detalhes de cada passeio estão nas páginas a seguir.",notaCombo:"Pacotes: valor por pessoa em apartamento duplo, com hotel, traslados e os passeios indicados como “incluído no pacote”.",hotelTr:"hotel e traslados inclusos",pgT:"Formas de pagamento",pgAv:"À vista (Pix)",pgCart:(n)=>`Cartão de crédito em ${n}x`,pgParc:"Parcela",pgTot:"Total",pgNota:"Cartão de crédito: Mastercard, Visa, Elo, American Express, Hipercard e Diners. Nos pagamentos no cartão, o valor já inclui a taxa da operadora.",pgDe:(n,v)=>`${n}x de ${v}`,vooChe:"Chegada do voo",vooSai:"Saída do voo",notaHot:"Hospedagem: valor total da estadia, para o quarto e as datas indicados.",notaPend:"Hospedagens marcadas como “a confirmar” ainda não estão somadas ao total.",quartos:(n)=>`${n} quarto${n!==1?"s":""}`},
  es:{proposta:"Propuesta de viaje",num:"Propuesta n.º",prep:"Preparada para",periodo:"Período",viaj:"Viajeros",passeios:"Excursiones",valida:"Válida hasta",adultos:(n)=>`${n} adulto${n!==1?"s":""}`,criancas:(n)=>`${n} niño${n!==1?"s":""}`,e:"y",
    roteiro:"Itinerario día a día",seuRoteiro:"Su itinerario",semData:"Fecha a definir",passeioN:(k,n)=>`Excursión ${k} de ${n}`,dur:"Duración",temp:"Temporada",saida:"Salida",sugSaida:"Salida sugerida",hDef:"horario a definir",quando:"Cuándo",dif:"Dificultad",
    inclui:"Incluye",naoInclui:"No incluye",cri:"Niños",obs:"Observaciones",priv:"EXCURSIÓN PRIVADA",exclusivo:"Exclusiva para el grupo",invest:"Inversión",resumo:"Resumen de la propuesta",
@@ -1487,7 +1567,7 @@ const LBL={
    validaTxt:(d)=>`Propuesta válida hasta el ${d}, sujeta a disponibilidad al momento de la reserva.`,defTitulo:"Su viaje por la Patagonia",locale:"es-AR",
    hosp:"Alojamiento",suaHosp:"Su alojamiento",hotelN:(k,n)=>`Hotel ${k} de ${n}`,checkin:"Check-in",checkout:"Check-out",noitesL:"Noches",noites:(n)=>`${n} noche${n!==1?"s":""}`,quarto:"Habitación",regime:"Régimen",hospedes:"Huéspedes",servH:"En el hotel",
    aPartir:(t)=>`desde las ${t}`,ate:(t)=>`hasta las ${t}`,aConf:"A confirmar",servicos:"Servicios",servCount:(a,b)=>[a?`${a} excursi${a!==1?"ones":"ón"}`:"",b?`${b} hotel${b!==1?"es":""}`:""].filter(Boolean).join(" · "),
-   pacote:"Paquete",pacInclui:"El paquete incluye",pacNaoInclui:"El paquete no incluye",em:"en",transferIO:"Traslado in/out (aeropuerto – hotel)",pacPasseios:"Excursiones incluidas",inclPac:"Incluido en el paquete",duracao:"Duración",validadeP:"Vigencia",inicio:"Inicio",pacVer:"Los detalles de cada excursión están en las páginas siguientes.",notaCombo:"Paquetes: valor por persona en habitación doble, con hotel, traslados y las excursiones indicadas como “incluido en el paquete”.",hotelTr:"hotel y traslados incluidos",pgT:"Formas de pago",pgAv:"Contado (Pix)",pgCart:(n)=>`Tarjeta de crédito en ${n} cuota${n>1?"s":""}`,pgParc:"Cuota",pgTot:"Total",pgNota:"Tarjeta de crédito: Mastercard, Visa, Elo, American Express, Hipercard y Diners. En los pagos con tarjeta, el valor ya incluye la tasa de la operadora.",pgDe:(n,v)=>`${n} × ${v}`,notaHot:"Alojamiento: valor total de la estadía, para la habitación y las fechas indicadas.",notaPend:"Los alojamientos marcados como “a confirmar” todavía no están sumados al total.",quartos:(n)=>`${n} habitaci${n!==1?"ones":"ón"}`},
+   pacote:"Paquete",pacInclui:"El paquete incluye",pacNaoInclui:"El paquete no incluye",em:"en",transferIO:"Traslado in/out (aeropuerto – hotel)",pacPasseios:"Excursiones incluidas",inclPac:"Incluido en el paquete",duracao:"Duración",validadeP:"Vigencia",inicio:"Inicio",pacVer:"Los detalles de cada excursión están en las páginas siguientes.",notaCombo:"Paquetes: valor por persona en habitación doble, con hotel, traslados y las excursiones indicadas como “incluido en el paquete”.",hotelTr:"hotel y traslados incluidos",pgT:"Formas de pago",pgAv:"Contado (Pix)",pgCart:(n)=>`Tarjeta de crédito en ${n} cuota${n>1?"s":""}`,pgParc:"Cuota",pgTot:"Total",pgNota:"Tarjeta de crédito: Mastercard, Visa, Elo, American Express, Hipercard y Diners. En los pagos con tarjeta, el valor ya incluye la tasa de la operadora.",pgDe:(n,v)=>`${n} × ${v}`,vooChe:"Llegada del vuelo",vooSai:"Salida del vuelo",notaHot:"Alojamiento: valor total de la estadía, para la habitación y las fechas indicadas.",notaPend:"Los alojamientos marcados como “a confirmar” todavía no están sumados al total.",quartos:(n)=>`${n} habitaci${n!==1?"ones":"ón"}`},
  en:{proposta:"Travel proposal",num:"Proposal no.",prep:"Prepared for",periodo:"Dates",viaj:"Travelers",passeios:"Tours",valida:"Valid until",adultos:(n)=>`${n} adult${n!==1?"s":""}`,criancas:(n)=>`${n} child${n!==1?"ren":""}`,e:"and",
    roteiro:"Day-by-day itinerary",seuRoteiro:"Your itinerary",semData:"Date to be confirmed",passeioN:(k,n)=>`Tour ${k} of ${n}`,dur:"Duration",temp:"Season",saida:"Departure",sugSaida:"Suggested departure",hDef:"time to be confirmed",quando:"When",dif:"Difficulty",
    inclui:"Included",naoInclui:"Not included",cri:"Children",obs:"Notes",priv:"PRIVATE TOUR",exclusivo:"Exclusive for your group",invest:"Investment",resumo:"Proposal summary",
@@ -1497,7 +1577,7 @@ const LBL={
    validaTxt:(d)=>`Proposal valid until ${d}, subject to availability at the time of booking.`,defTitulo:"Your trip to Patagonia",locale:"en-US",
    hosp:"Accommodation",suaHosp:"Your accommodation",hotelN:(k,n)=>`Hotel ${k} of ${n}`,checkin:"Check-in",checkout:"Check-out",noitesL:"Nights",noites:(n)=>`${n} night${n!==1?"s":""}`,quarto:"Room",regime:"Board",hospedes:"Guests",servH:"At the hotel",
    aPartir:(t)=>`from ${t}`,ate:(t)=>`until ${t}`,aConf:"TBC",servicos:"Services",servCount:(a,b)=>[a?`${a} tour${a!==1?"s":""}`:"",b?`${b} hotel${b!==1?"s":""}`:""].filter(Boolean).join(" · "),
-   pacote:"Package",pacInclui:"The package includes",pacNaoInclui:"Not included in the package",em:"in",transferIO:"Airport – hotel transfers",pacPasseios:"Included tours",inclPac:"Included in the package",duracao:"Duration",validadeP:"Valid for",inicio:"Start",pacVer:"Details of each tour are on the following pages.",notaCombo:"Packages: price per person in a double room, including hotel, transfers and the tours marked “included in the package”.",hotelTr:"hotel and transfers included",pgT:"Payment options",pgAv:"Upfront (Pix)",pgCart:(n)=>`Credit card in ${n} installment${n>1?"s":""}`,pgParc:"Installment",pgTot:"Total",pgNota:"Credit card: Mastercard, Visa, Elo, American Express, Hipercard and Diners. Card payments already include the card fee.",pgDe:(n,v)=>`${n} × ${v}`,notaHot:"Accommodation: total price for the stay, for the room and dates shown.",notaPend:"Accommodation marked “TBC” is not yet included in the total.",quartos:(n)=>`${n} room${n!==1?"s":""}`}};
+   pacote:"Package",pacInclui:"The package includes",pacNaoInclui:"Not included in the package",em:"in",transferIO:"Airport – hotel transfers",pacPasseios:"Included tours",inclPac:"Included in the package",duracao:"Duration",validadeP:"Valid for",inicio:"Start",pacVer:"Details of each tour are on the following pages.",notaCombo:"Packages: price per person in a double room, including hotel, transfers and the tours marked “included in the package”.",hotelTr:"hotel and transfers included",pgT:"Payment options",pgAv:"Upfront (Pix)",pgCart:(n)=>`Credit card in ${n} installment${n>1?"s":""}`,pgParc:"Installment",pgTot:"Total",pgNota:"Credit card: Mastercard, Visa, Elo, American Express, Hipercard and Diners. Card payments already include the card fee.",pgDe:(n,v)=>`${n} × ${v}`,vooChe:"Flight arrival",vooSai:"Flight departure",notaHot:"Accommodation: total price for the stay, for the room and dates shown.",notaPend:"Accommodation marked “TBC” is not yet included in the total.",quartos:(n)=>`${n} room${n!==1?"s":""}`}};
 const CITY={es:{"Ushuaia":"Ushuaia","El Calafate":"El Calafate","El Chaltén":"El Chaltén","Buenos Aires":"Buenos Aires"},en:{}};
 let fontCache=null; const imgCache=new Map();
 function b64(buf){let s="";const b=new Uint8Array(buf);for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(s)}
@@ -1721,6 +1801,7 @@ async function buildPdf(onProgress){
   eyebrow(Lb.seuRoteiro,M,y);y+=4;font("Disp","normal",24,C.ink);doc.text(Lb.roteiro,M,y+8);y+=18;
   const evs=[...S.itens.map((it,k)=>({it,k,date:it.data||"",r:1})),
     ...S.hoteis.flatMap((h,k)=>[{h,k,ev:"ci",date:h.ci||"",r:2},...(h.co?[{h,k,ev:"co",date:h.co,r:0}]:[])]),
+    ...(S.vooIn?[{fl:"in",date:S.vooIn.slice(0,10),hr:S.vooIn.slice(11,16),r:-1,k:-2}]:[]),...(S.vooOut?[{fl:"out",date:S.vooOut.slice(0,10),hr:S.vooOut.slice(11,16),r:9,k:-2}]:[]),
     ...S.combos.flatMap((cb,k)=>cbBlocks(cb).filter(b=>b.ci).flatMap(b=>[{cbk:k,b,ev:"ci",date:b.ci,r:2,k:-1},{cbk:k,b,ev:"co",date:b.co,r:0,k:-1}]))];
   const order=evs.sort((a,b)=>(a.date||"9999-99-99").localeCompare(b.date||"9999-99-99")||a.r-b.r||a.k-b.k);
   const groups=[];for(const o of order){const key=o.date;let gp=groups.find(g=>g.key===key);if(!gp){gp={key,list:[]};groups.push(gp)}gp.list.push(o)}
@@ -1732,6 +1813,7 @@ async function buildPdf(onProgress){
     else{font("Pop","medium",8,C.muted);doc.text(doc.splitTextToSize(Lb.semData.toUpperCase(),30),M,y+5)}
     doc.setFillColor(...C.accent);doc.circle(lineX,y+3.6,1.3,"F");
     for(const ev of gp.list){
+      if(ev.fl){font("Pop","medium",10.5,C.accent);doc.text(`✈ ${ev.fl==="in"?Lb.vooChe:Lb.vooSai}${ev.hr?" · "+ev.hr:""}`.replace("✈ ",""),colX,y+4.5);y+=4.5+5;continue}
       if(ev.cbk!=null){const Cc=CB[S.combos[ev.cbk].cid],isIn=ev.ev==="ci";
         font("Pop","medium",10.5,C_ACC());const nl=doc.splitTextToSize(`${isIn?Lb.checkin:Lb.checkout} · ${Cc.hotel[LK]||Cc.hotel.pt}`,W-M-colX);doc.text(nl,colX,y+4.5);y+=4.5+(nl.length-1)*4.6;
         const meta=[ev.b.d,isIn?Lb.noites(ev.b.n):"",Lb.pacote+": "+cbName(Cc,LK)];
