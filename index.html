@@ -150,6 +150,10 @@ nav.tabs .cnt{font-size:11.5px;background:var(--surface-2);border:1px solid var(
 @media (max-width:560px){.alert{margin-left:12px}}
 .alert.warn{background:var(--warn-bg);color:var(--warn-ink)}
 .alert.info{background:var(--info-bg);color:var(--info-ink)}
+.rt-aviso{border:2px solid #c62828;background:#fdecea;color:#8e1b1b;border-radius:10px;padding:12px 14px;font-size:13.5px;line-height:1.45}
+.rt-aviso b{color:#b71c1c}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .rt-aviso{background:#3a1414;color:#ffb4ab;border-color:#ef5350}:root:not([data-theme="light"]) .rt-aviso b{color:#ff8a80}}
+:root[data-theme="dark"] .rt-aviso{background:#3a1414;color:#ffb4ab;border-color:#ef5350}
 .alert.ok{background:var(--accent-soft);color:var(--accent)}
 .rt .alert{margin:0}
 .alert b{font-weight:600}
@@ -1005,6 +1009,7 @@ function renderRoteiro(){
       <label>Saída<span class="rt-dt"><input type="date" data-rf="sa" value="${esc(r.sa)}"><input type="time" data-rf="hs" value="${esc(r.hs||"")}" aria-label="Horário de saída"></span></label>
       ${RT.cid.length>1?`<button class="btn sm ghost" type="button" data-rdel aria-label="Remover cidade">✕</button>`:"<span></span>"}</div>`;
   $("#catalog").innerHTML=`<div class="rt">
+    <div class="rt-aviso" role="alert">⚠️ <b>Atenção: confira tudo antes de enviar.</b> O roteiro é montado com IA e pode ter erros (datas, dias de saída, passeios que não combinam, idade das crianças ou valores). Revise passeio por passeio na proposta e confirme a disponibilidade com o setor antes de mandar para a agência ou para o cliente.</div>
     <p class="hint" style="margin:0">Coloque as cidades com a data (e, se souber, o horário do voo) de chegada e saída, e quantas pessoas vão. O sistema monta o roteiro com os clássicos de cada cidade: junta o que combina no mesmo dia (por exemplo, Parque + Trem de manhã e Navegação à tarde), deixa o trekking sozinho no dia, não junta passeios repetidos e confere temporada, dias de saída e idade das crianças. Dia de chegada e de saída ficam livres (se o voo chegar até as 9h, entra um passeio noturno).</p>
     <div><h3>Cidades</h3><div id="rtCities" style="display:grid;gap:10px;margin-top:8px">${RT.cid.map(cityRow).join("")}</div>
       <button class="btn sm" type="button" id="rtAdd" style="margin-top:8px">+ Adicionar cidade</button></div>
@@ -1063,6 +1068,7 @@ function montarRoteiro(){rtRead();
   const byDay={},perOf={};add.forEach(x=>{(byDay[x.data]=byDay[x.data]||[]).push(x.id);if(x.per)perOf[x.id]=x.per});
   const PER={M:"manhã",T:"tarde",N:"noite",MT:"",L:"",D:"dia",TN:"tarde/noite",F:"dia inteiro"};
   RT.out=`<div class="alert ok"><b>${add.length} passeio${add.length!==1?"s":""} adicionado${add.length!==1?"s":""} na proposta.</b> Confira as datas e os valores ao lado.</div>
+    <div class="rt-aviso" style="margin:8px 0">⚠️ <b>Revise antes de enviar:</b> confira cada passeio, data e valor na proposta. Não mande para o cliente sem conferir.</div>
     <ul>${Object.keys(byDay).sort().map(d=>`<li><b>${fmtDM(d)}</b> (${wdName(d)}) · ${byDay[d].sort((p,q)=>(isTrf(byId[q])-isTrf(byId[p]))||(ADDON_OF[p]&&ADDON_OF[p]===q?1:ADDON_OF[q]&&ADDON_OF[q]===p?-1:0)||PER_ORD[slotOf(p)]-PER_ORD[slotOf(q)]).map(id=>esc(byId[id].t.split(" – ")[0])+(perOf[id]?` <span class="meta">(${perOf[id]})</span>`:"")).join(" + ")}</li>`).join("")}</ul>
     ${(()=>{const ag=skip.filter(x=>x.why==="idade"),nd=skip.filter(x=>x.why!=="idade");
       return (ag.length?`<div class="skip"><b>Não indicados pela idade das crianças:</b><ul>${ag.map(x=>`<li>${esc(x.t.t)}</li>`).join("")}</ul></div>`:"")+
