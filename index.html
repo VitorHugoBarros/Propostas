@@ -55,10 +55,27 @@ nav.tabs .cnt{font-size:11.5px;background:var(--surface-2);border:1px solid var(
 .cat{max-height:calc(100vh - 260px);min-height:420px;overflow:auto}
 @media (max-width:900px){.cat{max-height:none}}
 .dest-h{position:sticky;top:0;background:var(--surface-2);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:6px 16px;border-bottom:1px solid var(--rule);z-index:1}
-.tour{display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--rule)}
-.thumb{width:76px;height:56px;border-radius:6px;object-fit:cover;background:var(--accent-soft);display:block}
-.thumb.none{display:grid;place-items:center;font-family:var(--display);color:var(--accent);font-size:20px}
-.tour h3{font-family:var(--body);font-weight:600;font-size:14px;line-height:1.3}
+.tour{display:grid;grid-template-columns:240px minmax(0,1fr);gap:16px;align-items:start;padding:14px 16px;border-bottom:1px solid var(--rule)}
+.tour .ph{position:relative;display:block;padding:0;border:0;background:none;cursor:zoom-in;border-radius:10px;overflow:hidden}
+.tour .ph .nimg{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:600;border-radius:999px;padding:2px 8px}
+.facts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 10px;font-size:12.5px;line-height:1.4;margin:8px 0 0}
+.facts dt{color:var(--muted);white-space:nowrap}
+.facts dd{margin:0;color:var(--ink)}
+.tour .foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+.tour .price{margin-top:0}
+.tour .price b{font-size:15px}
+@media (max-width:640px){.tour{grid-template-columns:1fr}.tour .ph,.tour .thumb{width:100%}.tour .thumb{height:200px}}
+#lbDlg{border:0;padding:0;background:transparent;max-width:min(1100px,94vw);width:100%}
+#lbDlg::backdrop{background:rgba(10,18,28,.82)}
+#lbDlg .lb-main{width:100%;max-height:78vh;object-fit:contain;border-radius:10px;display:block;background:#000}
+#lbDlg .lb-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;color:#fff;font-size:14px}
+#lbDlg .lb-th{display:flex;gap:6px;flex-wrap:wrap}
+#lbDlg .lb-th img{width:72px;height:50px;object-fit:cover;border-radius:6px;cursor:pointer;opacity:.6;border:2px solid transparent}
+#lbDlg .lb-th img.on{opacity:1;border-color:#fff}
+#lbDlg .lb-x{background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:999px;padding:6px 14px;cursor:pointer;font:inherit}
+.thumb{width:240px;height:170px;border-radius:10px;object-fit:cover;background:var(--accent-soft);display:block}
+.thumb.none{display:grid;place-items:center;font-family:var(--display);color:var(--accent);font-size:42px}
+.tour h3{font-family:var(--body);font-weight:600;font-size:15.5px;line-height:1.3}
 .meta{color:var(--muted);font-size:12.5px;margin-top:2px}
 .price{font-variant-numeric:tabular-nums;font-size:13px;margin-top:2px}
 .btn{border:1px solid var(--rule);background:var(--surface);border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:500;white-space:nowrap}
@@ -530,6 +547,7 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
         <div class="chips" id="seasonChips" role="group" aria-label="Temporada"></div>
       </div>
       <div class="cat" id="catalog"></div>
+      <dialog id="lbDlg" aria-label="Fotos"><img class="lb-main" id="lbMain" alt=""><div class="lb-bar"><span id="lbT"></span><span class="lb-th" id="lbTh"></span><button class="lb-x" type="button" id="lbX">Fechar</button></div></dialog>
     </section>
 
     <section class="pane" aria-labelledby="propTitle">
@@ -855,6 +873,14 @@ function renderChips(){
 }
 const norm=s=>String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
 const starsTxt=n=>"★".repeat(n||0);
+const cut=(v,n)=>{v=String(v||"").replace(/\s+/g," ").trim();return v.length>n?v.slice(0,n-1).replace(/[\s,;–-]+$/,"")+"…":v};
+const PER_TXT={M:"Manhã",T:"Tarde",N:"Noite",MT:"Manhã ou tarde",L:"Manhã ou tarde (longo)",D:"Dia (manhã e tarde)",TN:"Tarde e noite",F:"Dia inteiro"};
+function catCard({imgs,fb,title,titleExtra,facts,price,btn}){const u=imgs.map(imgUrl).filter(Boolean);
+  const ph=u.length?`<button class="ph" type="button" data-lb="${esc(JSON.stringify(u))}" data-lbt="${esc(title)}" aria-label="Ver fotos de ${esc(title)}"><img class="thumb" loading="lazy" src="${u[0]}" alt="">${u.length>1?`<span class="nimg">${u.length} fotos</span>`:""}</button>`:`<div class="thumb none" aria-hidden="true">${esc(fb)}</div>`;
+  const f=facts.filter(x=>x&&x[1]);
+  return `<div class="tour">${ph}<div style="min-width:0"><h3>${esc(title)}${titleExtra||""}</h3>
+    ${f.length?`<dl class="facts">${f.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`:""}
+    <div class="foot"><div class="price">${price}</div>${btn}</div></div></div>`}
 function renderHotelCatalog(){
   const q=norm(filt.q.trim());const inProp=new Set(S.hoteis.map(h=>h.hid));
   const list=HOTELS.filter(h=>(filt.dest==="Todos"||h.d===filt.dest)&&(!q||norm([h.n,h.d,h.desc,h.loc,(h.serv||[]).join(" ")].join(" ")).includes(q)));
@@ -863,9 +889,9 @@ function renderHotelCatalog(){
   for(const h of list){
     if(h.d!==last){html+=`<div class="dest-h">${esc(h.d)}</div>`;last=h.d}
     const u=imgUrl(h.img[0]);const on=inProp.has(h.id);
-    html+=`<div class="tour">${u?`<img class="thumb" loading="lazy" src="${u}" alt="">`:`<div class="thumb none" aria-hidden="true">${esc(h.n[0])}</div>`}
-      <div style="min-width:0"><h3>${esc(h.n)} <span class="stars" aria-label="${h.cat} estrelas">${starsTxt(h.cat)}</span></h3><div class="meta">${esc(h.loc)}</div><div class="meta">${esc(h.q.map(r=>r[0]).join(" · "))}</div></div>
-      <button class="btn ${on?"added":""}" type="button" data-addh="${esc(h.id)}">${on?"Adicionado":"Adicionar"}</button></div>`;
+    html+=catCard({imgs:h.img,fb:h.n[0],title:h.n,titleExtra:` <span class="stars" aria-label="${h.cat} estrelas">${starsTxt(h.cat)}</span>`,
+      facts:[["Localização",cut(h.loc,110)],["Regime",REGIME[h.reg]?REGIME[h.reg][0]:""],["Horários",`check-in ${h.ci} · check-out ${h.co}`],["Quartos",cut(h.q.map(r=>r[0]).join(" · "),120)],["Destaques",cut((h.serv||[]).slice(0,4).join(" · "),110)]],
+      price:`<span class="meta">Valor: pedir à área de hotéis</span>`,btn:`<button class="btn ${on?"added":""}" type="button" data-addh="${esc(h.id)}">${on?"Adicionado":"Adicionar"}</button>`});
   }
   $("#catalog").innerHTML=html||`<div class="empty">Nenhum hotel cadastrado${filt.dest!=="Todos"?" em "+esc(filt.dest):""} com esses filtros.</div>`;
 }
@@ -876,10 +902,10 @@ function renderComboCatalog(){
   let html="",last="";
   for(const c of list){const grp=c.temp;if(grp!==last){html+=`<div class="dest-h">${esc(grp)}</div>`;last=grp}
     const t0=byId[c.tours[0]];const u=t0?imgUrl(t0.img[0]):null;const on=inProp.has(c.id);
-    html+=`<div class="tour">${u?`<img class="thumb" loading="lazy" src="${u}" alt="">`:`<div class="thumb none" aria-hidden="true">◆</div>`}
-      <div style="min-width:0"><h3>${esc(c.t.pt)}</h3><div class="meta">${esc(cbCities(c))} · ${c.tours.length} passeios · transfer in/out</div><div class="meta">${esc(c.per.pt)}</div>
-      <div class="price">${brl.format(c.pa)} <span class="meta">por pessoa (apto duplo) · ${esc(c.parc)}</span></div></div>
-      <button class="btn ${on?"added":""}" type="button" data-addc="${esc(c.id)}">${on?"Adicionado":"Adicionar"}</button></div>`}
+    const freq=id=>COMBOS.filter(x=>x.tours.includes(id)).length;const ord=c.tours.map((id,j)=>({id,j})).sort((p,q)=>freq(p.id)-freq(q.id)||p.j-q.j).map(x=>x.id);
+    html+=catCard({imgs:[...new Set(ord.flatMap(i=>byId[i]?byId[i].img.slice(0,2):[]))].slice(0,8),fb:"◆",title:c.t.pt,
+      facts:[["Hospedagem",`${cbCities(c)} · ${c.hotel.pt}`],["Inclui","Transfer in/out"+(c.extra?" · "+c.extra.pt.join(" · "):"")],["Passeios",c.tours.map(i=>byId[i]?byId[i].t.split(" – ")[0]:"").filter(Boolean).join(" · ")],["Validade",c.per.pt],["Não inclui",cut(c.exc.pt,90)]],
+      price:`<b>${brl.format(c.pa)}</b> <span class="meta">por pessoa (apto duplo) · ${esc(c.parc)}</span>`,btn:`<button class="btn ${on?"added":""}" type="button" data-addc="${esc(c.id)}">${on?"Adicionado":"Adicionar"}</button>`})}
   $("#catalog").innerHTML=html||`<div class="empty">Nenhum combo encontrado com esses filtros.</div>`;
 }
 /* ---------- regras de roteiro (ensinadas pelo Vitor em 01/11/2026) ---------- */
@@ -1048,10 +1074,10 @@ function renderCatalog(){
   let html="",last="";
   for(const t of list){
     if(t.d!==last){html+=`<div class="dest-h">${esc(t.d)}</div>`;last=t.d}
-    const u=imgUrl(t.img[0]);const meta=[t.dur,t.temp].filter(Boolean).join(" · ");const on=inProp.has(t.id);
-    html+=`<div class="tour">${u?`<img class="thumb" loading="lazy" src="${u}" alt="">`:`<div class="thumb none" aria-hidden="true">${esc(t.t[0])}</div>`}
-      <div style="min-width:0"><h3>${esc(t.t)}</h3><div class="meta">${esc(meta)}</div><div class="price">${brl.format(t.pa)} <span class="meta">adulto${t.pc>0&&t.pc!==t.pa?` · ${brl.format(t.pc)} criança`:""}</span></div></div>
-      <button class="btn ${on?"added":""}" type="button" data-add="${t.id}">${on?"Adicionado":"Adicionar"}</button></div>`;
+    const on=inProp.has(t.id);const am=ageMin(t);
+    html+=catCard({imgs:t.img,fb:t.t[0],title:t.t,
+      facts:[["Opera",cut(t.per,90)],["Saída",cut(t.saida,80)],["Duração",cut(t.dur,40)],["Período",RULE[t.id]?PER_TXT[RULE[t.id]]:""],["Temporada",t.temp],["Dificuldade",t.dif],["Crianças",am?`a partir de ${am} anos`+(AGE_MAX[t.id]?` (até ${AGE_MAX[t.id]})`:""):cut((t.cri||"").split("\n")[0],80)]],
+      price:`<b>${brl.format(t.pa)}</b> <span class="meta">adulto${t.pc>0&&t.pc!==t.pa?` · ${brl.format(t.pc)} criança`:""}</span>`,btn:`<button class="btn ${on?"added":""}" type="button" data-add="${t.id}">${on?"Adicionado":"Adicionar"}</button>`});
   }
   $("#catalog").innerHTML=html||`<div class="empty">Nenhum passeio encontrado com esses filtros.</div>`;
 }
@@ -1316,7 +1342,14 @@ function addCombo(cid){const cb=newCombo(cid,S);S.combos.push(cb);
   for(const id of CB[cid].tours)if(byId[id]){const it=newItem(id,S);Object.assign(it,{cb:cb.uid,a:cb.a,c:cb.c,pa:0,pc:0});S.itens.push(it)}
   touched();save();renderCatalog();renderItems();renderTotal()}
 function delCombo(k){const cb=S.combos[k];if(!cb)return;S.combos.splice(k,1);S.itens=S.itens.filter(i=>i.cb!==cb.uid);touched();save();renderCatalog();renderItems();renderTotal()}
-$("#catalog").addEventListener("click",e=>{const bc=e.target.closest("[data-addc]");if(bc){const cid=bc.dataset.addc;const at=S.combos.findIndex(c=>c.cid===cid);if(at>=0)delCombo(at);else addCombo(cid);return}
+function openLb(urls,title,i=0){const d=$("#lbDlg");if(!d||!d.showModal){window.open(urls[i],"_blank");return}
+  const show=n=>{$("#lbMain").src=urls[n];[...$("#lbTh").children].forEach((x,j)=>x.classList.toggle("on",j===n))};
+  $("#lbT").textContent=title;$("#lbTh").innerHTML=urls.length>1?urls.map((u,j)=>`<img src="${u}" alt="" data-lbi="${j}">`).join(""):"";
+  $("#lbTh").onclick=e=>{const im=e.target.closest("[data-lbi]");if(im)show(+im.dataset.lbi)};show(i);d.showModal()}
+$("#lbX").addEventListener("click",()=>$("#lbDlg").close());
+$("#lbDlg").addEventListener("click",e=>{if(e.target.id==="lbDlg")$("#lbDlg").close()});
+$("#catalog").addEventListener("click",e=>{const ph=e.target.closest("[data-lb]");if(ph){try{openLb(JSON.parse(ph.dataset.lb),ph.dataset.lbt)}catch(_){}return}
+  const bc=e.target.closest("[data-addc]");if(bc){const cid=bc.dataset.addc;const at=S.combos.findIndex(c=>c.cid===cid);if(at>=0)delCombo(at);else addCombo(cid);return}
   const bh=e.target.closest("[data-addh]");if(bh){const hid=bh.dataset.addh;const at=S.hoteis.findIndex(h=>h.hid===hid);
     if(at>=0){S.hoteis.splice(at,1);touched();save();renderCatalog();renderHotels();renderTotal()}else addHotel(hid);return}
   const b=e.target.closest("[data-add]");if(!b)return;const id=+b.dataset.add;
