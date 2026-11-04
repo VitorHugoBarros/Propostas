@@ -541,7 +541,7 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
     <section class="pane" aria-labelledby="catTitle">
       <div class="pane-h"><h2 id="catTitle">Catálogo</h2><span class="count" id="catCount"></span></div>
       <div class="filters">
-        <div class="seg" id="kindSeg" role="group" aria-label="Tipo de serviço"><button type="button" data-v="tour">Passeios</button><button type="button" data-v="hotel">Hotéis</button><button type="button" data-v="combo">Combos</button><button type="button" data-v="roteiro">Roteiro personalizado</button></div>
+        <div class="seg" id="kindSeg" role="group" aria-label="Tipo de serviço"><button type="button" data-v="tour">Passeios</button><button type="button" data-v="hotel">Hotéis</button><button type="button" data-v="combo">Combos</button><button type="button" data-v="adic">Adicionais</button><button type="button" data-v="roteiro">Roteiro personalizado</button></div>
         <input class="search" id="q" type="search" placeholder="Buscar passeio (ex.: pinguins, glaciar, tango)" autocomplete="off">
         <div class="chips" id="destChips" role="group" aria-label="Destino"></div>
         <div class="chips" id="seasonChips" role="group" aria-label="Temporada"></div>
@@ -868,7 +868,7 @@ function renderChips(){
   $("#destChips").innerHTML=["Todos",...DESTS].map(d=>`<button class="chip" type="button" data-d="${esc(d)}" aria-pressed="${filt.dest===d}">${esc(d)}</button>`).join("");
   $$("#kindSeg button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===filt.kind)));
   const rt=filt.kind==="roteiro";$("#seasonChips").hidden=filt.kind==="hotel"||rt;$("#destChips").hidden=rt;$("#q").hidden=rt;
-  $("#q").placeholder=filt.kind==="hotel"?"Buscar hotel (ex.: spa, centro, lago)":filt.kind==="combo"?"Buscar combo (ex.: rubi, calafate, inverno)":"Buscar passeio (ex.: pinguins, glaciar, tango)";
+  $("#q").placeholder=filt.kind==="hotel"?"Buscar hotel (ex.: spa, centro, lago)":filt.kind==="combo"?"Buscar combo (ex.: rubi, calafate, inverno)":filt.kind==="adic"?"Buscar adicional (ex.: husky, moto de neve, quadriciclo)":"Buscar passeio (ex.: pinguins, glaciar, tango)";
   $("#seasonChips").innerHTML=["Todas",...SEASONS].map(d=>`<button class="chip" type="button" data-s="${esc(d)}" aria-pressed="${filt.season===d}">${d==="Todas"?"Todas as temporadas":esc(d)}</button>`).join("");
 }
 const norm=s=>String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
@@ -1079,8 +1079,8 @@ function renderCatalog(){
   if(filt.kind==="combo")return renderComboCatalog();
   if(filt.kind==="roteiro")return renderRoteiro();
   const q=norm(filt.q.trim());const inProp=new Set(S.itens.filter(i=>!i.cb).map(i=>i.id));
-  const list=CATALOG.filter(t=>(filt.dest==="Todos"||t.d===filt.dest)&&(filt.season==="Todas"||(t.temp||"").includes(filt.season))&&(!q||norm(t.t+" "+t.d+" "+(t.inc||"")).includes(q)));
-  $("#catCount").textContent=`${list.length} de ${CATALOG.length}`;
+  const list=CATALOG.filter(t=>(filt.kind!=="adic"||isAdicAN(t.id))&&(filt.dest==="Todos"||t.d===filt.dest)&&(filt.season==="Todas"||(t.temp||"").includes(filt.season))&&(!q||norm(t.t+" "+t.d+" "+(t.inc||"")).includes(q)));
+  $("#catCount").textContent=filt.kind==="adic"?`${list.length} adicionais`:`${list.length} de ${CATALOG.length}`;
   let html="",last="";
   for(const t of list){
     if(t.d!==last){html+=`<div class="dest-h">${esc(t.d)}</div>`;last=t.d}
