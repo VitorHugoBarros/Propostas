@@ -1079,8 +1079,9 @@ function renderCatalog(){
   if(filt.kind==="combo")return renderComboCatalog();
   if(filt.kind==="roteiro")return renderRoteiro();
   const q=norm(filt.q.trim());const inProp=new Set(S.itens.filter(i=>!i.cb).map(i=>i.id));
-  const list=CATALOG.filter(t=>(filt.kind!=="adic"||isAdicAN(t.id))&&(filt.dest==="Todos"||t.d===filt.dest)&&(filt.season==="Todas"||(t.temp||"").includes(filt.season))&&(!q||norm(t.t+" "+t.d+" "+(t.inc||"")).includes(q)));
-  $("#catCount").textContent=filt.kind==="adic"?`${list.length} adicionais`:`${list.length} de ${CATALOG.length}`;
+  const list=CATALOG.filter(t=>(filt.kind==="adic"?isAdicAN(t.id):!isAdicAN(t.id))&&(filt.dest==="Todos"||t.d===filt.dest)&&(filt.season==="Todas"||(t.temp||"").includes(filt.season))&&(!q||norm(t.t+" "+t.d+" "+(t.inc||"")).includes(q)));
+  const nT=CATALOG.filter(t=>!isAdicAN(t.id)).length;
+  $("#catCount").textContent=filt.kind==="adic"?`${list.length} adicionais`:`${list.length} de ${nT}`;
   let html="",last="";
   for(const t of list){
     if(t.d!==last){html+=`<div class="dest-h">${esc(t.d)}</div>`;last=t.d}
@@ -2170,7 +2171,7 @@ $("#pdfBtn").addEventListener("click",async()=>{
 });
 
 /* init */
-$("#catalogInfo").textContent=`${CATALOG.length} passeios`;
+$("#catalogInfo").textContent=`${CATALOG.filter(t=>!isAdicAN(t.id)).length} passeios · ${CATALOG.filter(t=>isAdicAN(t.id)).length} adicionais`;
 renderChips();bindValues();renderCatalog();renderItems();renderTotal();renderTarifas();renderTaxas();renderHist();renderAgList();
 const h=(location.hash||"").slice(1);if(["historico","agencias","tarifas"].includes(h))showTab(h);
 window.__startLive=initLive;
