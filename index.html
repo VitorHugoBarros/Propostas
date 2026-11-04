@@ -541,7 +541,7 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
     <section class="pane" aria-labelledby="catTitle">
       <div class="pane-h"><h2 id="catTitle">Catálogo</h2><span class="count" id="catCount"></span></div>
       <div class="filters">
-        <div class="seg" id="kindSeg" role="group" aria-label="Tipo de serviço"><button type="button" data-v="tour">Passeios</button><button type="button" data-v="adic">Adicionais</button><button type="button" data-v="combo">Combos</button><button type="button" data-v="roteiro">Roteiro personalizado</button><button type="button" data-v="hotel">Hotéis</button></div>
+        <div class="seg" id="kindSeg" role="group" aria-label="Tipo de serviço"><button type="button" data-v="tour">Passeios</button><button type="button" data-v="adic">Adicionais</button><button type="button" data-v="combo">Combos</button><button type="button" data-v="roteiro">✨ Roteiro com IA</button><button type="button" data-v="hotel">Hotéis</button></div>
         <input class="search" id="q" type="search" placeholder="Buscar passeio (ex.: pinguins, glaciar, tango)" autocomplete="off">
         <div class="chips" id="destChips" role="group" aria-label="Destino"></div>
         <div class="chips" id="seasonChips" role="group" aria-label="Temporada"></div>
@@ -996,7 +996,7 @@ function fitSlot(sl,free,nPlaced){const f=p=>free.has(p);
   if(sl==="MT")return f("M")?["M"]:f("T")?["T"]:null;
   return f(sl)?[sl]:null}
 function renderRoteiro(){
-  $("#catCount").textContent="Clássicos por cidade";
+  $("#catCount").textContent="Monta o roteiro sozinho";
   if(RT.cid.length===1&&!RT.cid[0].ch&&S.vooIn){RT.cid[0].ch=S.vooIn.slice(0,10);RT.cid[0].hc=S.vooIn.slice(11,16)}
   if(!RT.cid[RT.cid.length-1].sa&&S.vooOut){const l=RT.cid[RT.cid.length-1];l.sa=S.vooOut.slice(0,10);l.hs=S.vooOut.slice(11,16)}
   const cityRow=(r,k)=>`<div class="rt-city" data-rc="${k}">
