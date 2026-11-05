@@ -415,13 +415,18 @@ function openPerfil(u,primeira){let d=q$("#perfilDlg");if(!d){d=document.createE
   d.innerHTML=`<div class="dh"><div style="flex:1"><h3>Meu perfil</h3><p id="pfP">Seu nome e WhatsApp aparecem no PDF das propostas de venda direta (Brasileiros em Ushuaia).</p></div></div>
   <div style="padding:0 20px"><label style="display:block;font-size:13px;font-weight:600;margin:8px 0 4px">Nome</label><input id="pfNome" style="width:100%;padding:9px 11px;border:1px solid var(--rule);border-radius:8px;font:inherit">
   <label style="display:block;font-size:13px;font-weight:600;margin:12px 0 4px">WhatsApp</label><input id="pfWhats" type="tel" placeholder="Ex.: +55 11 91234-5678" style="width:100%;padding:9px 11px;border:1px solid var(--rule);border-radius:8px;font:inherit">
+  <label style="display:block;font-size:13px;font-weight:600;margin:16px 0 4px">Trocar senha <span style="font-weight:400;color:var(--muted)">(deixe em branco para manter)</span></label><input id="pfPass" type="password" autocomplete="new-password" placeholder="Nova senha (mínimo 6 caracteres)" style="width:100%;padding:9px 11px;border:1px solid var(--rule);border-radius:8px;font:inherit">
+  <input id="pfPass2" type="password" autocomplete="new-password" placeholder="Repita a nova senha" style="width:100%;padding:9px 11px;border:1px solid var(--rule);border-radius:8px;font:inherit;margin-top:6px">
   <div class="status" id="pfSt" style="margin-top:8px"></div></div>
   <div class="da"><button class="btn" type="button" id="pfX">Fechar</button><button class="btn primary" type="button" id="pfOk">Salvar</button></div>`;document.body.appendChild(d);
   q$("#pfX").onclick=()=>d.close();
   q$("#pfOk").onclick=async()=>{const nome=q$("#pfNome").value.trim(),whats=q$("#pfWhats").value.trim();if(!nome){q$("#pfSt").textContent="Preencha o nome.";return}
+    const np=q$("#pfPass").value,np2=q$("#pfPass2").value;
+    if(np||np2){if(np.length<6){q$("#pfSt").textContent="A nova senha precisa ter pelo menos 6 caracteres.";return}if(np!==np2){q$("#pfSt").textContent="As duas senhas não são iguais.";return}
+      try{await auth.currentUser.updatePassword(np);q$("#pfPass").value="";q$("#pfPass2").value=""}catch(e){q$("#pfSt").textContent=e&&e.code==="auth/requires-recent-login"?"Por segurança, clique em Sair, entre de novo e troque a senha logo em seguida.":"Não foi possível trocar a senha ("+(e.code||e)+").";return}}
     try{await fs.doc("usuarios/"+auth.currentUser.uid).update({nome,whats});Object.assign(window.BRUSH.perfil,{nome,whats});q$("#ubName").textContent=nome;d.close();
       if(window.__onPerfil)window.__onPerfil()}catch(e){q$("#pfSt").textContent="Não foi possível salvar ("+(e.code||e)+")."}}}
-  const pf=window.BRUSH.perfil||{};q$("#pfNome").value=pf.nome||"";q$("#pfWhats").value=pf.whats||"";q$("#pfSt").textContent="";
+  const pf=window.BRUSH.perfil||{};q$("#pfNome").value=pf.nome||"";q$("#pfWhats").value=pf.whats||"";q$("#pfSt").textContent="";q$("#pfPass").value="";q$("#pfPass2").value="";
   q$("#pfP").textContent=primeira?"Falta só o seu WhatsApp: ele aparece no PDF das propostas de venda direta (Brasileiros em Ushuaia).":"Seu nome e WhatsApp aparecem no PDF das propostas de venda direta (Brasileiros em Ushuaia).";
   if(d.showModal&&!d.open)d.showModal()}
 
@@ -440,10 +445,11 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
         <label>Setor<select id="nvTipo"><option value="agencias">Agências</option><option value="fisico">Físico</option></select></label>
         <label>Tipo de acesso<select id="nvPapel"><option value="vendedor">Vendedor</option><option value="supervisor">Supervisor</option><option value="admin">Admin</option></select></label>
         <label id="nvSupRow">Supervisor<select id="nvSup"><option value="">— nenhum —</option></select></label>
+        <label>Senha provisória<input id="nvPass" autocomplete="off" minlength="6"></label>
         <button class="btn" type="button" id="nvGo">Criar acesso</button>
       </div>
-      <p class="hint">A pessoa recebe um e-mail para criar a própria senha (veja também a caixa de spam). O acesso já fica liberado.</p>
-      <p class="status" id="nvSt"></p></details>
+      <p class="hint">O acesso já fica liberado. Mande o e-mail e a <b>senha provisória</b> para a pessoa pelo WhatsApp (o sistema monta a mensagem). Ela também recebe um e-mail com link para criar a senha, mas e-mails da empresa às vezes ficam presos no filtro. Depois de entrar, ela troca a senha em <b>Meu perfil</b>.</p>
+      <p class="status" id="nvSt"></p><div id="nvMsg" hidden></div></details>
     <div class="tbl-wrap"><table class="t eq-t"><thead><tr><th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Setor</th><th>Tipo de acesso</th><th>Supervisor</th><th>Acesso</th><th>Cadastro</th><th></th></tr></thead><tbody id="eqBody"></tbody></table></div>
     <div id="cvBox" hidden style="margin-top:18px"><h3>Convite enviado · aguardando o primeiro acesso</h3>
       <p class="hint">Essas pessoas já receberam o link para criar a senha. Assim que entrarem pela primeira vez, passam para a lista acima com o acesso liberado.</p>
@@ -482,31 +488,39 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
     if(ev.target.closest("[data-cvre]")){try{await auth.sendPasswordResetEmail(id);st("Link reenviado para "+id+". Peça para olhar também o spam.")}catch(e){st("Não foi possível reenviar ("+(e.code||e)+").")}}
     if(ev.target.closest("[data-cvdel]")){try{await fs.doc("convites/"+id).delete();st("Convite cancelado.")}catch(e){st("Não foi possível cancelar.")}}});
   q$("#nvPapel").onchange=()=>{q$("#nvSupRow").hidden=q$("#nvPapel").value!=="vendedor"};
-  q$("#nvGo").onclick=async()=>{const st=t=>{q$("#nvSt").textContent=t};
+  const showMsg=(nome,email,pass,whats)=>{const url=location.origin+location.pathname;
+    const txt=`Olá, ${nome.split(" ")[0]}! Seu acesso ao sistema de propostas da Brasileiros em Ushuaia está pronto.\n\nSite: ${url}\nE-mail: ${email}\nSenha provisória: ${pass}\n\nDepois de entrar, troque a senha em "Meu perfil" (canto de cima, à direita).`;
+    const box=q$("#nvMsg");box.hidden=false;const wa=String(whats||"").replace(/\D/g,"");
+    box.innerHTML=`<div style="margin-top:8px;padding:12px;border:1px solid var(--rule,#d3dde8);border-radius:10px;background:var(--surface-2,#f4f7fb)"><div style="font-size:12.5px;color:var(--muted,#566676);margin-bottom:6px">Mensagem para mandar no WhatsApp:</div><textarea id="nvTxt" rows="7" style="width:100%;box-sizing:border-box;font:inherit;font-size:13px;padding:8px;border:1px solid var(--rule,#d3dde8);border-radius:8px;background:var(--surface,#fff);color:var(--ink,#12202e)" readonly></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn sm" type="button" id="nvCopy">Copiar mensagem</button>${wa?`<a class="btn sm" target="_blank" rel="noopener" href="https://wa.me/${wa.length<=11?"55"+wa:wa}?text=${encodeURIComponent(txt)}">Abrir no WhatsApp</a>`:""}</div></div>`;
+    q$("#nvTxt").value=txt;q$("#nvCopy").onclick=async()=>{try{await navigator.clipboard.writeText(txt);q$("#nvCopy").textContent="Copiado!"}catch(e){q$("#nvTxt").select();document.execCommand("copy");q$("#nvCopy").textContent="Copiado!"}}};
+  const genPass=()=>"Brush"+String(crypto.getRandomValues(new Uint32Array(1))[0]%9000+1000)+"!";
+  if(!q$("#nvPass").value)q$("#nvPass").value=genPass();
+  q$("#nvGo").onclick=async()=>{const st=t=>{q$("#nvSt").textContent=t};q$("#nvMsg").hidden=true;const pass=q$("#nvPass").value.trim();
     const nome=q$("#nvNome").value.trim(),email=q$("#nvEmail").value.trim().toLowerCase(),whats=q$("#nvWhats").value.trim(),
       tipo=q$("#nvTipo").value,papel=q$("#nvPapel").value,sup=papel==="vendedor"?q$("#nvSup").value:"";
     if(!nome||!/^\S+@\S+\.\S+$/.test(email)){st("Preencha o nome e um e-mail válido.");return}
+    if(pass.length<6){st("A senha provisória precisa ter pelo menos 6 caracteres.");return}
     if(EQROWS.some(r=>(r.email||"").toLowerCase()===email)){st("Essa pessoa já está na lista abaixo. É só ajustar o acesso dela por lá.");return}
     const btn=q$("#nvGo");btn.disabled=true;st("Criando acesso…");
     // app secundário: criar o login não desconecta você
     const sec=(firebase.apps||[]).find(a=>a.name==="criar")||firebase.initializeApp(CFG,"criar");const sa=sec.auth();
     try{try{await sa.setPersistence(firebase.auth.Auth.Persistence.NONE)}catch(e){}
       try{sa.languageCode="pt-BR"}catch(e){}
-      const tmp=Array.from(crypto.getRandomValues(new Uint8Array(18)),b=>("0"+b.toString(16)).slice(-2)).join("")+"Aa1!";
-      const c=await sa.createUserWithEmailAndPassword(email,tmp);const uid=c.user.uid;
+      const c=await sa.createUserWithEmailAndPassword(email,pass);const uid=c.user.uid;
       await sec.firestore().doc("usuarios/"+uid).set({nome,email,whats,tipo,ativo:false,admin:false,criadoEm:new Date().toISOString()});
       try{await sa.sendPasswordResetEmail(email)}catch(e){}
       await sa.signOut();
       await fs.doc("usuarios/"+uid).update({ativo:true,liberadoEm:new Date().toISOString(),papel,admin:papel==="admin",sup,criadoPor:auth.currentUser.uid});
-      ["#nvNome","#nvEmail","#nvWhats"].forEach(x=>q$(x).value="");
-      st(`Acesso criado para ${nome}. Enviamos para ${email} o link para criar a senha.`)}
+      ["#nvNome","#nvEmail","#nvWhats"].forEach(x=>q$(x).value="");q$("#nvPass").value=genPass();
+      st(`Acesso criado para ${nome}.`);showMsg(nome,email,pass,whats)}
     catch(e){try{await sa.signOut()}catch(_){}
       if(e&&e.code==="auth/email-already-in-use"){
         // e-mail já usado antes (ex.: pessoa excluída): deixa um convite e manda o link de senha; ao entrar, o cadastro é criado com estes dados
         try{await fs.doc("convites/"+email).set({nome,email,whats,tipo,papel,admin:papel==="admin",sup,criadoEm:new Date().toISOString(),criadoPor:auth.currentUser.uid});
           try{await sa.sendPasswordResetEmail(email)}catch(_){}
           ["#nvNome","#nvEmail","#nvWhats"].forEach(x=>q$(x).value="");
-          st(`Esse e-mail já tinha sido usado antes, então reaproveitamos o login. Enviamos para ${email} o link para criar a senha; quando ${nome} entrar pela primeira vez, aparece aqui na lista com o acesso liberado.`)}
+          st(`Esse e-mail já tinha um login (de um cadastro anterior), então a senha provisória não vale para ele. Enviamos para ${email} o link para criar a senha; quando ${nome} entrar, aparece aqui na lista. Se o e-mail não chegar: no console do Firebase, em Authentication → Usuários, exclua o login desse e-mail, cancele o convite abaixo e crie o acesso de novo (aí vale a senha provisória).`)}
         catch(e2){st("Não foi possível criar o acesso ("+(e2&&e2.code||e2)+"). Confira se as regras do Firebase estão atualizadas.")}
         btn.disabled=false;return}
       st(
