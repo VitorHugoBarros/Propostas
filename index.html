@@ -724,7 +724,8 @@ function buildEquipe(){const nav=document.querySelector("nav.tabs");if(!nav||doc
         <h3 id="agFormTitle">Nova agência</h3>
         <div class="fields">
           <div class="f"><label for="fNome">Nome</label><input id="fNome"></div>
-          <div class="f"><label for="fContato">Contato (aparece no PDF)</label><input id="fContato" placeholder="Telefone, e-mail ou site"></div>
+          <div class="f"><label for="fTel">Telefone / WhatsApp</label><input id="fTel" type="tel" placeholder="Ex.: (11) 91234-5678"></div>
+          <div class="f"><label for="fEmail">E-mail</label><input id="fEmail" type="email" placeholder="Ex.: reservas@agencia.com.br"></div>
           <div class="f"><label for="fCom">Comissão padrão (%)</label><input id="fCom" type="number" min="0" max="100" step="0.5"></div>
           <div class="f"><label for="fResp">Pessoa de contato na agência</label><input id="fResp" placeholder="Ex.: Simone"></div>
           <div class="f"><label for="fCnpj">CNPJ</label><input id="fCnpj" inputmode="numeric" placeholder="00.000.000/0000-00"></div>
@@ -797,6 +798,10 @@ const BRUSH_LOGO="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAqIAAAEZCAMAAAB7
 const BRUSH_AG={id:"__brush",nome:"Brasileiros em Ushuaia",contato:"brasileirosemushuaia.com.br · @brasileirosemushuaia",logo:BRUSH_LOGO};
 const isDireta=()=>S.ag&&S.ag.id==="__brush";
 const isFisico=()=>!!(window.BRUSH&&window.BRUSH.perfil&&window.BRUSH.perfil.tipo==="fisico");
+// contato da agência: telefone e e-mail separados (cadastros antigos têm tudo junto em "contato")
+function agSplit(a){if(!a)return{tel:"",email:""};if(a.tel!=null||a.email!=null)return{tel:a.tel||"",email:a.email||""};
+  const c=String(a.contato||"");const em=(c.match(/[^\s·|,;\/]+@[^\s·|,;\/]+/g)||[]);
+  return{tel:c.replace(/[^\s·|,;\/]+@[^\s·|,;\/]+/g,"").replace(/(^[\s·|,;\/-]+|[\s·|,;\/-]+$)/g,"").replace(/\s*[·|,;\/]\s*[·|,;\/\s]*/g," · ").trim(),email:em.join(", ")}}
 function brushContato(){const pf=window.BRUSH&&window.BRUSH.perfil;if(!pf||!pf.nome)return BRUSH_AG.contato;
   return [`Vendedor(a): ${pf.nome}`,pf.whats?`WhatsApp ${pf.whats}`:"","@brasileirosemushuaia"].filter(Boolean).join(" · ")}
 function useBrush(st){st.ag=Object.assign({},BRUSH_AG,{contato:brushContato()});st.com={modo:"fixo",fixo:"0"};return st}
@@ -1558,7 +1563,7 @@ function renderAgList(){const box=$("#agList");
     <div class="acts"><button class="btn sm" type="button" data-use>Usar na proposta</button><button class="btn sm ghost" type="button" data-edit>Editar</button><button class="btn sm ghost danger" type="button" data-del>Excluir</button></div></div></div>`).join("")
     :`<div class="empty" style="grid-column:1/-1">Nenhuma agência cadastrada. Clique em <b>Nova agência</b> ou salve a agência direto da proposta.</div>`}
 function openAgForm(a){agEdit=a||null;agLogo=a&&a.logo||"";$("#agForm").hidden=false;$("#agFormTitle").textContent=a?"Editar agência":"Nova agência";
-  $("#fNome").value=a?a.nome||"":"";$("#fContato").value=a?a.contato||"":"";$("#fCom").value=a&&a.com!=null?a.com:"";$("#fResp").value=a?a.resp||"":"";$("#fCnpj").value=a?a.cnpj||"":"";$("#fVend").value=a?a.vend||"":"";$("#fStatus").textContent="";renderFLogo();$("#fNome").focus()}
+  $("#fNome").value=a?a.nome||"":"";{const sp=agSplit(a);$("#fTel").value=sp.tel;$("#fEmail").value=sp.email}$("#fCom").value=a&&a.com!=null?a.com:"";$("#fResp").value=a?a.resp||"":"";$("#fCnpj").value=a?a.cnpj||"":"";$("#fVend").value=a?a.vend||"":"";$("#fStatus").textContent="";renderFLogo();$("#fNome").focus()}
 function renderFLogo(){const p=$("#fLogoPrev");if(agLogo){p.src=agLogo;p.hidden=false;$("#fLogoRm").hidden=false}else{p.hidden=true;$("#fLogoRm").hidden=true}}
 $("#agNew").addEventListener("click",()=>openAgForm(null));
 $("#agQ").addEventListener("input",e=>{agQ=e.target.value;renderAgList()});
@@ -1570,7 +1575,8 @@ $("#fLogoRm").addEventListener("click",()=>{agLogo="";renderFLogo()});
 $("#fSave").addEventListener("click",async()=>{if(!LIVE.db){$("#fStatus").textContent="Cadastro indisponível nesta visualização.";return}
   const nome=$("#fNome").value.trim();if(!nome){$("#fStatus").textContent="Preencha o nome.";return}
   $("#fStatus").textContent="Salvando…";agLogo=await storeLogo(agLogo);
-  const data={nome,contato:$("#fContato").value.trim(),com:$("#fCom").value===""?"":num($("#fCom").value),resp:$("#fResp").value.trim(),cnpj:$("#fCnpj").value.trim(),vend:$("#fVend").value.trim(),logo:agLogo,atualizadoEm:new Date().toISOString()};
+  const tel=$("#fTel").value.trim(),email=$("#fEmail").value.trim();
+  const data={nome,tel,email,contato:[tel,email].filter(Boolean).join(" · "),com:$("#fCom").value===""?"":num($("#fCom").value),resp:$("#fResp").value.trim(),cnpj:$("#fCnpj").value.trim(),vend:$("#fVend").value.trim(),logo:agLogo,atualizadoEm:new Date().toISOString()};
   try{if(agEdit){await LIVE.db.doc("agencias/"+agEdit.id).update(data);if(S.ag.id===agEdit.id){S.ag.logo=agLogo;S.ag.contato=data.contato;save();renderLogo&&renderLogo()}}else await LIVE.db.collection("agencias").add(Object.assign({criadoEm:new Date().toISOString()},data));$("#agForm").hidden=true;setStatus(`Agência ${nome} salva${agLogo?" com logo":""}.`,"ok")}
   catch(err){$("#fStatus").textContent="Não foi possível salvar ("+(err&&err.code||"erro")+")."}});
 let pendingDel=null;
