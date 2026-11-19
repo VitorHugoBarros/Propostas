@@ -925,8 +925,9 @@ function renderComboCatalog(){
   const q=norm(filt.q.trim());const inProp=new Set(S.combos.map(c=>c.cid));
   const list=COMBOS.filter(c=>(filt.dest==="Todos"||c.cid.some(x=>x[0]===filt.dest))&&(filt.season==="Todas"||c.temp===filt.season)&&(!q||norm([c.t.pt,c.tier,c.temp,c.cid.map(x=>x[0]).join(" "),c.tours.map(i=>byId[i]?byId[i].t:"").join(" ")].join(" ")).includes(q)));
   $("#catCount").textContent=`${list.length} de ${COMBOS.length} combos`;
+  list.sort((x,y)=>(y.flyer?1:0)-(x.flyer?1:0));
   let html="",last="";
-  for(const c of list){const grp=c.temp;if(grp!==last){html+=`<div class="dest-h">${esc(grp)}</div>`;last=grp}
+  for(const c of list){const grp=c.flyer?"Pacotes com arte de divulgação":"Outros pacotes";if(grp!==last){html+=`<div class="dest-h">${esc(grp)}</div>`;last=grp}
     const t0=byId[c.tours[0]];const u=t0?imgUrl(t0.img[0]):null;const on=inProp.has(c.id);
     const freq=id=>COMBOS.filter(x=>x.tours.includes(id)).length;const ord=c.tours.map((id,j)=>({id,j})).sort((p,q)=>freq(p.id)-freq(q.id)||p.j-q.j).map(x=>x.id);
     html+=catCard({imgs:[...(c.flyer?[c.flyer]:[]),...new Set(ord.flatMap(i=>byId[i]?byId[i].img.slice(0,2):[]))].slice(0,9),fly:!!c.flyer,fb:"◆",title:c.t.pt,
